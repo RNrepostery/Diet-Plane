@@ -1,0 +1,264 @@
+@page "/"
+@inject DataService DataService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="container-fluid p-0">
+    <!-- Header Clinical Banner -->
+    <div class="card card-custom p-4 mb-4 border-0 text-white shadow-sm" style="background: linear-gradient(135deg, #0f172a 0%, #0d9488 100%);">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="rounded-circle bg-white d-flex align-items-center justify-content-center text-teal" style="width: 58px; height: 58px; color: #0d9488;">
+                    <i class="bi bi-heart-pulse-fill fs-2"></i>
+                </div>
+                <div>
+                    <h2 class="fw-bold mb-1">Clinical Dietetics & Nutrition Management</h2>
+                    <p class="mb-0 text-white-50">Local-First Medical Nutrition System for Registered Dietitians & Healthcare Admins</p>
+                </div>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-light fw-bold text-dark rounded-pill px-3 shadow-sm" @onclick='() => Navigation.NavigateTo("/patient-intake")'>
+                    <i class="bi bi-person-plus-fill text-success me-1"></i> New Patient Intake
+                </button>
+                <button class="btn btn-outline-light rounded-pill px-3" @onclick='() => Navigation.NavigateTo("/diet-plan-generator")'>
+                    <i class="bi bi-magic me-1"></i> Auto-Generate Plan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Clinical Stats Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card card-custom p-3 border-start border-4" style="border-left-color: #0d9488 !important;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="metric-label">Patient Registry</div>
+                        <div class="metric-value text-teal" style="color: #0d9488;">@patients.Count</div>
+                        <small class="text-muted fs-8">Active Clinical Files</small>
+                    </div>
+                    <div class="rounded-circle p-2.5 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background: rgba(13, 148, 136, 0.12); color: #0d9488;">
+                        <i class="bi bi-people-fill fs-3"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="card card-custom p-3 border-start border-4 border-info">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="metric-label">Disease Master</div>
+                        <div class="metric-value text-info">@diseases.Count</div>
+                        <small class="text-muted fs-8">Clinical Diagnoses</small>
+                    </div>
+                    <div class="rounded-circle p-2.5 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background: rgba(14, 165, 233, 0.12); color: #0284c7;">
+                        <i class="bi bi-shield-shaded fs-3"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="card card-custom p-3 border-start border-4 border-primary">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="metric-label">Food Item Master</div>
+                        <div class="metric-value text-primary">@masterItems.Count</div>
+                        <small class="text-muted fs-8">Standard Portions & 1g Macros</small>
+                    </div>
+                    <div class="rounded-circle p-2.5 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background: rgba(59, 130, 246, 0.12); color: #2563eb;">
+                        <i class="bi bi-database-fill-gear fs-3"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="card card-custom p-3 border-start border-4 border-success">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="metric-label">Diet Charts Issued</div>
+                        <div class="metric-value text-success">@dietPlans.Count</div>
+                        <small class="text-muted fs-8">Prescriptions Saved</small>
+                    </div>
+                    <div class="rounded-circle p-2.5 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background: rgba(34, 197, 94, 0.12); color: #16a34a;">
+                        <i class="bi bi-file-earmark-check-fill fs-3"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Patients Registry Section -->
+    <div class="card card-custom p-4">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+            <div>
+                <h4 class="fw-bold text-dark mb-0">Patient Clinical Registry</h4>
+                <small class="text-secondary">Instant search by patient name, clinical diagnosis, or WhatsApp phone</small>
+            </div>
+            <div class="d-flex gap-2">
+                <div class="input-group" style="min-width: 320px;">
+                    <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" class="form-control" placeholder="Search patient, diagnosis, phone..." @bind="searchTerm" @bind:event="oninput" />
+                </div>
+            </div>
+        </div>
+
+        @if (!FilteredPatients.Any())
+        {
+            <div class="text-center py-5 bg-light rounded-3">
+                <i class="bi bi-person-exclamation display-4 text-muted mb-2"></i>
+                <h5 class="fw-semibold text-secondary">No Clinical Profiles Found</h5>
+                <p class="text-muted small">Add your first patient intake with anthropometrics and dietary recall.</p>
+                <button class="btn btn-emerald rounded-pill px-4 shadow-sm" @onclick='() => Navigation.NavigateTo("/patient-intake")'>
+                    <i class="bi bi-plus-lg me-1"></i> Add Patient Intake
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Patient Profile</th>
+                            <th>Clinical Diagnoses</th>
+                            <th>Anthropometrics & IBW</th>
+                            <th>Metabolic Energy & Goal</th>
+                            <th>Contact / WhatsApp</th>
+                            <th class="text-end">Clinical Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var patient in FilteredPatients)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 42px; height: 42px; background: #ccfbf1; color: #0d9488;">
+                                            @patient.Name.FirstOrDefault()
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold text-dark">@patient.Name</div>
+                                            <small class="text-muted">@patient.Age yrs | @patient.Gender | <strong class="text-success">@patient.PrimaryDietType</strong></small>
+                                            @if (!string.IsNullOrEmpty(patient.PrimaryComplaint))
+                                            {
+                                                <small class="text-secondary d-block fs-8 text-truncate" style="max-width: 200px;">@patient.PrimaryComplaint</small>
+                                            }
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    @if (patient.ClinicalDiagnoses.Any())
+                                    {
+                                        <div class="d-flex flex-wrap gap-1" style="max-width: 220px;">
+                                            @foreach (var diag in patient.ClinicalDiagnoses)
+                                            {
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle fs-8">
+                                                    @diag
+                                                </span>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-light text-muted border fs-8">General Wellness</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="fw-bold">@patient.BMI <small class="text-muted">kg/m²</small></div>
+                                    <span class="badge @GetBmiBadgeClass(patient.BMICategory)">@patient.BMICategory</span>
+                                    <small class="text-muted d-block fs-8 mt-1">Broca's IBW: <strong class="text-primary">@patient.IdealBodyWeightBroca kg</strong></small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info-subtle text-info-emphasis border">@patient.CalorieGoalType</span>
+                                    <div class="fw-bold text-teal mt-1" style="color: #0d9488;">@patient.RecommendedTargetCalories kcal/day</div>
+                                    <small class="text-muted fs-8">BMR: @patient.BMR | TDEE: @patient.TDEE</small>
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(patient.ContactNumber))
+                                    {
+                                        <div class="d-flex align-items-center gap-1">
+                                            <button class="btn btn-sm btn-outline-success rounded-pill px-2 py-0.5" title="Open WhatsApp" @onclick="() => OpenWhatsApp(patient.ContactNumber)">
+                                                <i class="bi bi-whatsapp me-1"></i> @patient.ContactNumber
+                                            </button>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">No contact</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-success" title="Generate Diet Plan" @onclick='() => Navigation.NavigateTo($"/diet-plan-generator/{patient.Id}")'>
+                                            <i class="bi bi-magic me-1"></i> Plan Diet
+                                        </button>
+                                        <button class="btn btn-outline-primary" title="Edit Patient Intake" @onclick='() => Navigation.NavigateTo($"/patient-intake/{patient.Id}")'>
+                                            <i class="bi bi-pencil-square"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger" title="Delete Patient" @onclick="() => ConfirmDelete(patient)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Patient> patients = new();
+    private List<Disease> diseases = new();
+    private List<FoodItem> masterItems = new();
+    private List<DietPlan> dietPlans = new();
+    private string searchTerm = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        RefreshData();
+    }
+
+    private void RefreshData()
+    {
+        patients = DataService.GetPatients();
+        diseases = DataService.GetDiseases();
+        masterItems = DataService.GetMasterFoodItems();
+        dietPlans = DataService.GetDietPlans();
+    }
+
+    private IEnumerable<Patient> FilteredPatients => string.IsNullOrWhiteSpace(searchTerm)
+        ? patients
+        : patients.Where(p =>
+            p.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            p.PrimaryComplaint.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            p.ContactNumber.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            p.ClinicalDiagnoses.Any(d => d.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+        );
+
+    private string GetBmiBadgeClass(string category)
+    {
+        if (category.Contains("Underweight")) return "badge-bmi-underweight";
+        if (category.Contains("Normal")) return "badge-bmi-normal";
+        if (category.Contains("Overweight")) return "badge-bmi-overweight";
+        return "badge-bmi-obese";
+    }
+
+    private async Task OpenWhatsApp(string phone)
+    {
+        string cleanPhone = phone.Replace(" ", "").Replace("-", "").Replace("+", "");
+        string url = $"https://api.whatsapp.com/send?phone={cleanPhone}";
+        await JSRuntime.InvokeVoidAsync("open", url, "_blank");
+    }
+
+    private void ConfirmDelete(Patient patient)
+    {
+        DataService.DeletePatient(patient.Id);
+        RefreshData();
+    }
+}

@@ -1,0 +1,292 @@
+@page "/diet-plan/{Id}"
+@inject DataService DataService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="container-fluid p-0">
+    <!-- Action Bar (Hidden when printing) -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4 no-print">
+        <button class="btn btn-outline-secondary rounded-pill px-3" @onclick='() => Navigation.NavigateTo("/diet-plans")'>
+            <i class="bi bi-arrow-left me-1"></i> Back to Saved Plans
+        </button>
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-success rounded-pill px-3 shadow-sm d-flex align-items-center gap-1" @onclick="ShareViaWhatsApp">
+                <i class="bi bi-whatsapp fs-5"></i> Share via WhatsApp
+            </button>
+            <button class="btn btn-outline-primary rounded-pill px-3" @onclick="CopyWhatsAppText">
+                <i class="bi bi-clipboard-check me-1"></i> Copy Text
+            </button>
+            <button class="btn btn-emerald rounded-pill px-4 shadow-sm" @onclick="PrintDietChart">
+                <i class="bi bi-printer-fill me-1"></i> Export PDF / Print
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(copyNotification))
+    {
+        <div class="alert alert-success py-2 px-3 rounded-pill no-print shadow-sm mb-3">
+            <i class="bi bi-check-circle-fill me-2"></i> @copyNotification
+        </div>
+    }
+
+    @if (plan == null)
+    {
+        <div class="alert alert-warning text-center py-5">
+            <i class="bi bi-exclamation-triangle display-4 text-warning mb-2"></i>
+            <h5>Diet Plan Not Found</h5>
+            <button class="btn btn-primary mt-2" @onclick='() => Navigation.NavigateTo("/diet-plans")'>Return to Plans</button>
+        </div>
+    }
+    else
+    {
+        <!-- Printable Clinical Diet Chart Document -->
+        <div class="card card-custom p-4 p-md-5 bg-white shadow-sm border" id="printable-diet-chart">
+            <!-- Header Medical Branding -->
+            <div class="d-flex justify-content-between align-items-start border-bottom pb-4 mb-4">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-teal text-white d-flex align-items-center justify-content-center" style="width: 56px; height: 56px; background-color: #0d9488;">
+                        <i class="bi bi-heart-pulse-fill fs-2"></i>
+                    </div>
+                    <div>
+                        <h2 class="fw-bold text-teal mb-0" style="color: #0d9488;">
+                            CLINICAL NUTRITION THERAPY PRESCRIPTION
+                        </h2>
+                        <span class="text-secondary small fw-semibold">Evidence-Based Clinical Dietetics & Disease Management Protocol</span>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-dark fs-7 px-3 py-2 mb-1 d-inline-block">Prescription Date: @plan.CreatedDate.ToString("dd MMM yyyy")</span>
+                    <small class="d-block text-muted">Consultant: <strong>@plan.DietitianName</strong></small>
+                    <small class="d-block text-teal font-monospace fs-8" style="color: #0d9488;">Ref: #@plan.Id.Substring(0, 8).ToUpper()</small>
+                </div>
+            </div>
+
+            <!-- Patient Information & Vitals Banner -->
+            <div class="bg-light p-4 rounded-3 border mb-4">
+                <div class="row g-3 align-items-center">
+                    <div class="col-md-4 border-end">
+                        <small class="text-muted d-block font-monospace fs-8">PATIENT DEMOGRAPHICS</small>
+                        <h4 class="fw-bold text-dark mb-0">@patient?.Name</h4>
+                        <div class="text-secondary small">Age: <strong>@(patient?.Age ?? 30) yrs</strong> | Gender: <strong>@(patient?.Gender ?? "N/A")</strong></div>
+                        <div class="text-secondary small">Diet Preference: <strong class="text-success">@(patient?.PrimaryDietType ?? "Vegetarian")</strong></div>
+                        <div class="text-teal small fw-semibold"><i class="bi bi-telephone-fill me-1"></i>@(string.IsNullOrEmpty(patient?.ContactNumber) ? "No contact saved" : patient?.ContactNumber)</div>
+                    </div>
+
+                    <div class="col-md-4 border-end">
+                        <small class="text-muted d-block font-monospace fs-8">CLINICAL ANTHROPOMETRICS</small>
+                        <div class="small">Height: <strong>@plan.PatientHeightCm cm</strong> | Weight: <strong>@plan.PatientWeightKg kg</strong></div>
+                        <div class="small">BMI: <strong>@plan.PatientBMI kg/m²</strong> (@plan.PatientBMICategory)</div>
+                        <div class="small">Broca's Ideal Weight (IBW): <strong class="text-primary">@plan.PatientBrocaIBW kg</strong></div>
+                        <div class="small">Waist-to-Hip Ratio (WHR): <strong>@(patient?.WaistToHipRatio ?? 0)</strong></div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <small class="text-muted d-block font-monospace fs-8">METABOLIC EXPENDITURE & GOAL</small>
+                        <div class="small">Harris-Benedict BMR: <strong>@plan.PatientBMR kcal/day</strong></div>
+                        <div class="small">Total Daily Expenditure (TDEE): <strong>@plan.PatientTDEE kcal/day</strong></div>
+                        <div class="small text-teal fw-bold" style="color: #0d9488;">
+                            Calorie Prescription: <strong>@plan.CalorieGoalType (@plan.TargetCalories kcal)</strong>
+                        </div>
+                    </div>
+                </div>
+
+                @if (plan.PatientDiagnoses.Any())
+                {
+                    <div class="mt-3 pt-3 border-top">
+                        <small class="text-danger fw-bold d-block mb-1">
+                            <i class="bi bi-shield-exclamation me-1"></i> Active Pathological Diagnoses:
+                        </small>
+                        <div class="d-flex flex-wrap gap-1">
+                            @foreach (var dis in plan.PatientDiagnoses)
+                            {
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">@dis</span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Total Daily Nutritional Summary Bar -->
+            <div class="card p-3 mb-4 text-white border-0 shadow-sm" style="background: linear-gradient(135deg, #0f172a 0%, #0d9488 100%);">
+                <div class="row text-center align-items-center g-2">
+                    <div class="col-md-3 border-end border-secondary">
+                        <small class="text-white-50 d-block fs-8">TOTAL PLANNED ENERGY</small>
+                        <span class="fs-3 fw-bold">@plan.TotalCalories <small class="fs-6">kcal</small></span>
+                    </div>
+                    <div class="col-md-3 border-end border-secondary">
+                        <small class="text-white-50 d-block fs-8">PROTEIN</small>
+                        <span class="fs-3 fw-bold text-info">@plan.TotalProtein <small class="fs-6">g</small></span>
+                        <small class="d-block text-white-50 fs-8">@Math.Round(plan.TotalProtein * 4, 0) kcal (Target: @plan.TargetProteinGrams g)</small>
+                    </div>
+                    <div class="col-md-3 border-end border-secondary">
+                        <small class="text-white-50 d-block fs-8">CARBOHYDRATES</small>
+                        <span class="fs-3 fw-bold text-warning">@plan.TotalCarbs <small class="fs-6">g</small></span>
+                        <small class="d-block text-white-50 fs-8">@Math.Round(plan.TotalCarbs * 4, 0) kcal (Target: @plan.TargetCarbsGrams g)</small>
+                    </div>
+                    <div class="col-md-3">
+                        <small class="text-white-50 d-block fs-8">HEALTHY FATS / FIBER</small>
+                        <span class="fs-3 fw-bold text-light">@plan.TotalFat <small class="fs-6">g</small></span>
+                        <small class="d-block text-white-50 fs-8">Fiber: @plan.TotalFiber g | @Math.Round(plan.TotalFat * 9, 0) kcal</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Meal Schedule Breakdown -->
+            <h5 class="fw-bold text-dark mb-3">
+                <i class="bi bi-clock-history me-2 text-teal" style="color: #0d9488;"></i>
+                Personalized Meal-by-Meal Timetable
+            </h5>
+
+            <div class="table-responsive mb-4">
+                <table class="table table-bordered align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 18%;">Meal Slot & Timing</th>
+                            <th style="width: 32%;">Prescribed Food & Portion</th>
+                            <th style="width: 25%;">Nutritional Breakdown</th>
+                            <th style="width: 25%;">Clinical Preparation Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var slotName in mealSlotNames)
+                        {
+                            var itemsInSlot = plan.MealItems.Where(i => i.MealSlot.Equals(slotName, StringComparison.OrdinalIgnoreCase)).ToList();
+                            if (itemsInSlot.Any())
+                            {
+                                int rowSpan = itemsInSlot.Count;
+                                for (int i = 0; i < rowSpan; i++)
+                                {
+                                    var item = itemsInSlot[i];
+                                    <tr>
+                                        @if (i == 0)
+                                        {
+                                            <td rowspan="@rowSpan" class="bg-light fw-bold align-middle">
+                                                <div class="text-teal fs-6" style="color: #0d9488;">@slotName</div>
+                                                <small class="text-muted d-block">
+                                                    <i class="bi bi-clock me-1"></i>@item.TimeSlot
+                                                </small>
+                                            </td>
+                                        }
+                                        <td>
+                                            <div class="fw-bold text-dark">@item.FoodItemName</div>
+                                            <span class="badge bg-teal-subtle text-teal border mt-1">@item.Quantity @item.Unit</span>
+                                        </td>
+                                        <td>
+                                            <span class="fw-bold text-danger">@item.Calories kcal</span>
+                                            <div class="text-muted fs-8">
+                                                P: <strong class="text-primary">@item.Protein g</strong> |
+                                                C: <strong class="text-warning-emphasis">@item.Carbs g</strong> |
+                                                F: <strong class="text-secondary">@item.Fat g</strong>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <small class="text-dark">@(string.IsNullOrEmpty(item.SpecialInstructions) ? "Standard hygienic home preparation" : item.SpecialInstructions)</small>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Guidelines & Notes -->
+            <div class="row g-3 border-top pt-4">
+                <div class="col-md-6">
+                    <div class="p-3 bg-light rounded border h-100">
+                        <h6 class="fw-bold text-teal mb-2" style="color: #0d9488;">
+                            <i class="bi bi-droplet-fill text-info me-1"></i> Hydration & Fluid Protocol
+                        </h6>
+                        <p class="small text-secondary mb-0">@(string.IsNullOrEmpty(plan.FluidIntakeInstructions) ? "Drink 3.0 Liters of water throughout the day." : plan.FluidIntakeInstructions)</p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 bg-light rounded border h-100">
+                        <h6 class="fw-bold text-danger mb-2">
+                            <i class="bi bi-x-circle-fill me-1"></i> Strict Dietary Exclusions / Foods to Avoid
+                        </h6>
+                        <p class="small text-secondary mb-0">@(string.IsNullOrEmpty(plan.AvoidFoodInstructions) ? "Avoid refined sugars, bakery items, trans-fats." : plan.AvoidFoodInstructions)</p>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(plan.GeneralNotes))
+                {
+                    <div class="col-12 mt-3">
+                        <div class="p-3 bg-light rounded border">
+                            <h6 class="fw-bold text-dark mb-2">
+                                <i class="bi bi-journal-text me-1"></i> Dietitian Lifestyle Advice & Special Notes
+                            </h6>
+                            <p class="small text-secondary mb-0">@plan.GeneralNotes</p>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Medical Footer & Dietitian Signature -->
+            <div class="row align-items-center mt-5 pt-4 border-top">
+                <div class="col-6">
+                    <small class="text-muted d-block">Generated by Clinical Dietetics & Nutrition Management System</small>
+                    <small class="text-muted fs-8">Verification Code: <strong>MD-@plan.Id.Substring(0, 8).ToUpper()</strong></small>
+                </div>
+                <div class="col-6 text-end">
+                    <div class="fw-bold text-dark fs-6">Registered Clinical Dietitian / Nutritionist</div>
+                    <small class="text-secondary">@plan.DietitianName</small>
+                    <div class="text-muted fs-8">Medical Nutrition Therapy Division</div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string? Id { get; set; }
+
+    private DietPlan? plan;
+    private Patient? patient;
+    private string copyNotification = string.Empty;
+
+    private readonly List<string> mealSlotNames = new()
+    {
+        "Breakfast", "Mid-Morning", "Lunch", "Evening", "Dinner", "Bedtime"
+    };
+
+    protected override void OnInitialized()
+    {
+        if (!string.IsNullOrEmpty(Id))
+        {
+            plan = DataService.GetDietPlanById(Id);
+            if (plan != null)
+            {
+                patient = DataService.GetPatientById(plan.PatientId);
+            }
+        }
+    }
+
+    private async Task PrintDietChart()
+    {
+        await JSRuntime.InvokeVoidAsync("print");
+    }
+
+    private async Task ShareViaWhatsApp()
+    {
+        if (plan == null) return;
+        string message = plan.GenerateWhatsAppMessage();
+        string cleanPhone = (patient?.ContactNumber ?? string.Empty).Replace(" ", "").Replace("-", "").Replace("+", "");
+        
+        string encodedText = Uri.EscapeDataString(message);
+        string whatsappUrl = string.IsNullOrEmpty(cleanPhone)
+            ? $"https://api.whatsapp.com/send?text={encodedText}"
+            : $"https://api.whatsapp.com/send?phone={cleanPhone}&text={encodedText}";
+
+        await JSRuntime.InvokeVoidAsync("open", whatsappUrl, "_blank");
+    }
+
+    private async Task CopyWhatsAppText()
+    {
+        if (plan == null) return;
+        string message = plan.GenerateWhatsAppMessage();
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", message);
+        copyNotification = "Diet plan formatted clinical text copied to clipboard successfully!";
+        StateHasChanged();
+    }
+}

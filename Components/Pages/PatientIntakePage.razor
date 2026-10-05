@@ -1,0 +1,618 @@
+@page "/patient-intake"
+@page "/patient-intake/{id}"
+@inject DataService DataService
+@inject NavigationManager Navigation
+
+<div class="container-fluid p-0">
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-dark mb-1">
+                <i class="bi bi-clipboard-pulse text-teal me-2" style="color: #0d9488;"></i>
+                @(string.IsNullOrEmpty(Id) ? "Clinical Dietetics Patient Intake Form" : "Edit Patient Profile")
+            </h3>
+            <p class="text-secondary small mb-0">Anthropometrics, Broca's IBW, Harris-Benedict BMR, TDEE, Disease Master diagnosis, and 24-hr dietary recall.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary rounded-pill px-3" @onclick='() => Navigation.NavigateTo("/")'>
+                <i class="bi bi-arrow-left me-1"></i> Dashboard
+            </button>
+            <button class="btn btn-emerald rounded-pill px-4 shadow-sm" @onclick="SavePatient">
+                <i class="bi bi-check-lg me-1"></i> Save Profile
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i> @statusMessage
+            <button type="button" class="btn-close" @onclick="() => statusMessage = string.Empty"></button>
+        </div>
+    }
+
+    <!-- Tabbed Navigation -->
+    <div class="card card-custom mb-4">
+        <div class="card-header bg-white border-bottom p-0">
+            <ul class="nav nav-tabs nav-tabs-clinical px-3" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link @(activeTab == 1 ? "active" : "")" @onclick="() => activeTab = 1">
+                        <i class="bi bi-person-lines-fill me-1"></i> 1. Demographics & Medical Diagnosis
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link @(activeTab == 2 ? "active" : "")" @onclick="() => activeTab = 2">
+                        <i class="bi bi-calculator-fill me-1"></i> 2. Anthropometrics & Clinical Calculators
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link @(activeTab == 3 ? "active" : "")" @onclick="() => activeTab = 3">
+                        <i class="bi bi-pie-chart-fill me-1"></i> 3. Macronutrient Engine & Goals
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link @(activeTab == 4 ? "active" : "")" @onclick="() => activeTab = 4">
+                        <i class="bi bi-egg-fried me-1"></i> 4. Lifestyle & 24h Dietary Recall
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <div class="card-body p-4">
+            <!-- TAB 1: DEMOGRAPHICS & CLINICAL DIAGNOSES -->
+            @if (activeTab == 1)
+            {
+                <div class="row g-3 mb-4">
+                    <div class="col-12 border-bottom pb-2 mb-3">
+                        <h5 class="fw-bold text-teal" style="color: #0d9488;">
+                            <i class="bi bi-person-badge me-2"></i>Patient Demographics & Contact
+                        </h5>
+                    </div>
+
+                    <div class="col-md-5">
+                        <label class="form-label required">Patient Full Name</label>
+                        <input type="text" class="form-control form-control-lg" placeholder="e.g. Rajesh Sharma" @bind="patient.Name" required />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label required">Contact / WhatsApp Phone Number</label>
+                        <div class="input-group input-group-lg">
+                            <span class="input-group-text bg-light text-success"><i class="bi bi-whatsapp"></i></span>
+                            <input type="tel" class="form-control" placeholder="+91 98765 43210" @bind="patient.ContactNumber" required />
+                        </div>
+                        <small class="text-muted fs-8">Used for direct WhatsApp clinical diet chart sharing.</small>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Gender</label>
+                        <select class="form-select form-select-lg" @bind="patient.Gender">
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Date of Birth</label>
+                        <input type="date" class="form-control" @bind="patient.DateOfBirth" />
+                        <small class="text-muted fs-8">Calculated Age: <strong>@patient.Age years</strong></small>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Primary Diet Type</label>
+                        <select class="form-select" @bind="patient.PrimaryDietType">
+                            <option value="Vegetarian">Vegetarian</option>
+                            <option value="Vegan">Vegan</option>
+                            <option value="Non-Veg">Non-Veg</option>
+                            <option value="Ovo-Vegetarian">Ovo-Vegetarian</option>
+                            <option value="Jain">Jain (No Root Veg / Onion / Garlic)</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Occupation</label>
+                        <input type="text" class="form-control" placeholder="e.g. Software Engineer, Homemaker..." @bind="patient.Occupation" />
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label">Primary Complaint / Therapeutic Goal</label>
+                        <textarea class="form-control" rows="2" placeholder="e.g. Weight management, HbA1c reduction, NAFLD regression, blood pressure normalization..." @bind="patient.PrimaryComplaint"></textarea>
+                    </div>
+
+                    <!-- CLINICAL DIAGNOSES FROM DISEASE MASTER -->
+                    <div class="col-12 border-bottom pb-2 my-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="fw-bold text-teal mb-0" style="color: #0d9488;">
+                                <i class="bi bi-shield-exclamation me-2"></i>Clinical Diagnoses (Disease Master Multi-Select)
+                            </h5>
+                            <button type="button" class="btn btn-sm btn-outline-teal" style="color: #0d9488; border-color: #0d9488;" @onclick='() => Navigation.NavigateTo("/disease-master")'>
+                                <i class="bi bi-gear-fill me-1"></i> Manage Diseases
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <p class="text-secondary small mb-2">Check all diagnosed clinical conditions. The automated diet engine will dynamically eliminate contraindicated foods mapped to these conditions:</p>
+                        
+                        <div class="p-3 bg-light rounded-3 border">
+                            <div class="row g-2">
+                                @foreach (var dis in availableDiseases)
+                                {
+                                    <div class="col-md-6 col-lg-4">
+                                        <div class="form-check p-2 bg-white rounded border">
+                                            <input class="form-check-input ms-0 me-2" type="checkbox" id="patient-dis-@dis.Id"
+                                                   checked="@patient.ClinicalDiagnoses.Contains(dis.Name)"
+                                                   @onchange="(e) => ToggleDisease(dis.Name, e.Value)" />
+                                            <label class="form-check-label fw-bold small text-dark" for="patient-dis-@dis.Id">
+                                                @dis.Name
+                                            </label>
+                                            <small class="text-muted d-block fs-8 ps-4 text-truncate">@dis.Category | @dis.DietaryGuidelines</small>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Describe Medical Conditions & Lab History</label>
+                        <textarea class="form-control" rows="2" placeholder="e.g. Recent ultrasound showed Grade 1 Fatty Liver, Fasting Blood Sugar 145 mg/dL, HbA1c 7.2%..." @bind="patient.DescribeMedicalConditions"></textarea>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Prescribed Medications & Dosages</label>
+                        <textarea class="form-control" rows="2" placeholder="e.g. Metformin 500mg (1-0-1), Telmisartan 40mg (1-0-0)..." @bind="patient.PrescribedMedications"></textarea>
+                    </div>
+                </div>
+            }
+
+            <!-- TAB 2: ANTHROPOMETRICS & CLINICAL CALCULATORS -->
+            @if (activeTab == 2)
+            {
+                <div class="row g-3 mb-4">
+                    <div class="col-12 border-bottom pb-2 mb-3">
+                        <h5 class="fw-bold text-teal" style="color: #0d9488;">
+                            <i class="bi bi-rulers me-2"></i>Core Anthropometric Measurements
+                        </h5>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Height (cm)</label>
+                        <input type="number" step="0.5" class="form-control form-control-lg text-center fw-bold" @bind="patient.HeightCm" @bind:event="oninput" />
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Weight (kg)</label>
+                        <input type="number" step="0.5" class="form-control form-control-lg text-center fw-bold" @bind="patient.WeightKg" @bind:event="oninput" />
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Waist Circumference (cm)</label>
+                        <input type="number" step="0.5" class="form-control form-control-lg text-center fw-bold" @bind="patient.WaistCm" @bind:event="oninput" />
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Hip Circumference (cm)</label>
+                        <input type="number" step="0.5" class="form-control form-control-lg text-center fw-bold" @bind="patient.HipsCm" @bind:event="oninput" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Physical Activity Level (PAL Factor)</label>
+                        <select class="form-select form-select-lg" @bind="patient.ActivityLevel">
+                            <option value="Sedentary">Sedentary (1.2) - Desk job, little/no exercise</option>
+                            <option value="Lightly Active">Lightly Active (1.375) - Light exercise 1-3 days/week</option>
+                            <option value="Moderately Active">Moderately Active (1.55) - Moderate exercise 3-5 days/week</option>
+                            <option value="Very Active">Very Active (1.725) - Heavy training 6-7 days/week</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Daily Step Count</label>
+                        <input type="number" step="500" class="form-control form-control-lg" placeholder="e.g. 5000" @bind="patient.DailyStepCount" />
+                    </div>
+
+                    <!-- AUTOMATED CLINICAL CALCULATION ENGINE RESULTS -->
+                    <div class="col-12 mt-4">
+                        <div class="card p-4 border-0 rounded-4 shadow-sm" style="background: linear-gradient(135deg, #f0fdfa 0%, #e6fffa 100%); border: 1px solid #99f6e4 !important;">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="fw-bold text-teal mb-0" style="color: #0d9488;">
+                                    <i class="bi bi-cpu-fill me-2"></i> Automated Clinical Calculation Engine
+                                </h5>
+                                <span class="badge bg-teal text-white px-3 py-2" style="background-color: #0d9488;">Real-Time Clinical Vitals</span>
+                            </div>
+
+                            <div class="row g-3">
+                                <!-- 1. BMI -->
+                                <div class="col-md-3">
+                                    <div class="metric-badge bg-white shadow-sm h-100">
+                                        <div class="metric-label">BODY MASS INDEX (BMI)</div>
+                                        <div class="metric-value text-teal" style="color: #0d9488;">
+                                            @patient.BMI <span class="fs-7 text-muted">kg/m²</span>
+                                        </div>
+                                        <span class="badge @GetBmiBadgeClass(patient.BMICategory) mt-2">@patient.BMICategory</span>
+                                        <small class="d-block text-muted fs-8 mt-2">Formula: Weight / (Height in m)²</small>
+                                    </div>
+                                </div>
+
+                                <!-- 2. Broca's Index IBW -->
+                                <div class="col-md-3">
+                                    <div class="metric-badge bg-white shadow-sm h-100">
+                                        <div class="metric-label">BROCA'S IDEAL BODY WEIGHT (IBW)</div>
+                                        <div class="metric-value text-primary">
+                                            @patient.IdealBodyWeightBroca <span class="fs-7 text-muted">kg</span>
+                                        </div>
+                                        <small class="badge bg-primary-subtle text-primary border mt-2">
+                                            @(patient.WeightKg > patient.IdealBodyWeightBroca ? $"+{Math.Round(patient.WeightKg - patient.IdealBodyWeightBroca, 1)}kg Excess" : "Optimal / Deficit")
+                                        </small>
+                                        <small class="d-block text-muted fs-8 mt-2">
+                                            @(patient.Gender == "Female" ? "Ht (cm) - 105" : "Ht (cm) - 100")
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <!-- 3. WHR & Abdominal Risk -->
+                                <div class="col-md-3">
+                                    <div class="metric-badge bg-white shadow-sm h-100">
+                                        <div class="metric-label">WAIST-TO-HIP RATIO (WHR)</div>
+                                        <div class="metric-value @(patient.IsAbdominalObesityHighRisk ? "text-danger" : "text-success")">
+                                            @patient.WaistToHipRatio
+                                        </div>
+                                        @if (patient.IsAbdominalObesityHighRisk)
+                                        {
+                                            <span class="badge bg-danger mt-2">High Abdominal Risk</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-success mt-2">Normal Risk</span>
+                                        }
+                                        <small class="d-block text-muted fs-8 mt-2">Asian limit: @(patient.Gender == "Female" ? "W > 80cm / WHR > 0.85" : "W > 90cm / WHR > 0.90")</small>
+                                    </div>
+                                </div>
+
+                                <!-- 4. BMR & TDEE -->
+                                <div class="col-md-3">
+                                    <div class="metric-badge bg-white shadow-sm h-100">
+                                        <div class="metric-label">HARRIS-BENEDICT BMR / TDEE</div>
+                                        <div class="metric-value text-dark">
+                                            @patient.TDEE <span class="fs-7 text-muted">kcal</span>
+                                        </div>
+                                        <small class="d-block text-teal fw-semibold mt-1">BMR: @patient.BMR kcal/day</small>
+                                        <small class="badge bg-dark mt-2">PAL Factor: @patient.ActivityFactor</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- TAB 3: MACRONUTRIENT DISTRIBUTION ENGINE & ENERGY GOALS -->
+            @if (activeTab == 3)
+            {
+                <div class="row g-3 mb-4">
+                    <div class="col-12 border-bottom pb-2 mb-3">
+                        <h5 class="fw-bold text-teal" style="color: #0d9488;">
+                            <i class="bi bi-fire me-2"></i>Caloric Goals & Macronutrient Distribution Engine
+                        </h5>
+                    </div>
+
+                    <!-- Rapid Rule of Thumb Caloric Estimations -->
+                    <div class="col-12">
+                        <div class="bg-light p-3 rounded-3 border">
+                            <h6 class="fw-bold text-dark mb-2">Rapid "Rule of Thumb" Caloric Estimations (Asian Clinical Guidelines)</h6>
+                            <div class="row text-center g-2">
+                                <div class="col-md-4">
+                                    <div class="p-3 bg-white rounded border">
+                                        <small class="text-danger fw-bold d-block">WEIGHT LOSS DEFICIT (20-22 kcal/kg)</small>
+                                        <strong class="fs-5 text-danger">@patient.WeightLossCalorieTargetMin - @patient.WeightLossCalorieTargetMax kcal/day</strong>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="p-3 bg-white rounded border">
+                                        <small class="text-primary fw-bold d-block">MAINTENANCE (25-30 kcal/kg)</small>
+                                        <strong class="fs-5 text-primary">@patient.MaintenanceCalorieTargetMin - @patient.MaintenanceCalorieTargetMax kcal/day</strong>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="p-3 bg-white rounded border">
+                                        <small class="text-success fw-bold d-block">SURPLUS / GAIN (30-35 kcal/kg)</small>
+                                        <strong class="fs-5 text-success">@patient.WeightGainCalorieTargetMin - @patient.WeightGainCalorieTargetMax kcal/day</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Select Caloric Goal Strategy</label>
+                        <select class="form-select form-select-lg" @bind="patient.CalorieGoalType">
+                            <option value="Weight Loss">Weight Loss / Calorie Deficit (~@((patient.WeightLossCalorieTargetMin + patient.WeightLossCalorieTargetMax)/2) kcal)</option>
+                            <option value="Maintenance">Maintenance Intake (~@((patient.MaintenanceCalorieTargetMin + patient.MaintenanceCalorieTargetMax)/2) kcal)</option>
+                            <option value="Weight Gain">Weight Gain / Surplus (~@((patient.WeightGainCalorieTargetMin + patient.WeightGainCalorieTargetMax)/2) kcal)</option>
+                            <option value="Custom">Custom Target Energy</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Clinical Macronutrient Preset</label>
+                        <select class="form-select form-select-lg" @bind="patient.MacroDistributionPreset">
+                            <option value="Standard Balanced">Standard Indian Clinical Balanced (55% C, 20% P, 25% F)</option>
+                            <option value="Diabetic">Diabetic / Low Glycemic (45% C, 25% P, 30% F)</option>
+                            <option value="High Protein">High Protein / Fat Loss (40% C, 30% P, 30% F)</option>
+                            <option value="Renal Protective">Renal Protective / CKD (60% C, 15% P, 25% F)</option>
+                            <option value="Cardiac Low-Fat">Cardiac / Low Saturated Fat (60% C, 20% P, 20% F)</option>
+                            <option value="Custom">Custom Percentage Ratio</option>
+                        </select>
+                    </div>
+
+                    @if (patient.CalorieGoalType == "Custom")
+                    {
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Custom Energy Target (kcal/day)</label>
+                            <input type="number" class="form-control" placeholder="e.g. 1750" @bind="patient.TargetCaloriesOverride" />
+                        </div>
+                    }
+
+                    <!-- Macro Target Grams Output Card -->
+                    <div class="col-12 mt-3">
+                        <div class="card p-4 bg-white border border-teal rounded-3 shadow-sm" style="border-color: #0d9488 !important;">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <span class="badge bg-teal text-white mb-1" style="background-color: #0d9488;">Macronutrient Grams Conversion</span>
+                                    <h5 class="fw-bold text-dark mb-0">Daily Prescribed Energy: @patient.RecommendedTargetCalories kcal/day</h5>
+                                </div>
+                                <div class="text-end">
+                                    <small class="text-muted d-block">Energy Factor: 1g Carb/Prot = 4 kcal | 1g Fat = 9 kcal</small>
+                                </div>
+                            </div>
+
+                            <div class="row text-center g-3">
+                                <div class="col-md-4">
+                                    <div class="p-3 bg-light rounded-3 border">
+                                        <small class="text-warning-emphasis fw-bold d-block">CARBOHYDRATES (@patient.ActiveMacroPercentages.CarbPct%)</small>
+                                        <div class="fs-3 fw-bold text-warning-emphasis">@patient.TargetCarbsGrams <span class="fs-6">grams</span></div>
+                                        <small class="text-muted">@Math.Round(patient.TargetCarbsGrams * 4, 0) kcal</small>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <div class="p-3 bg-light rounded-3 border">
+                                        <small class="text-primary fw-bold d-block">PROTEIN (@patient.ActiveMacroPercentages.ProtPct%)</small>
+                                        <div class="fs-3 fw-bold text-primary">@patient.TargetProteinGrams <span class="fs-6">grams</span></div>
+                                        <small class="text-muted">@Math.Round(patient.TargetProteinGrams * 4, 0) kcal (~@Math.Round(patient.TargetProteinGrams / patient.WeightKg, 1)g/kg)</small>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <div class="p-3 bg-light rounded-3 border">
+                                        <small class="text-secondary fw-bold d-block">HEALTHY FATS (@patient.ActiveMacroPercentages.FatPct%)</small>
+                                        <div class="fs-3 fw-bold text-secondary">@patient.TargetFatGrams <span class="fs-6">grams</span></div>
+                                        <small class="text-muted">@Math.Round(patient.TargetFatGrams * 9, 0) kcal</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- TAB 4: LIFESTYLE & 24H DIETARY RECALL -->
+            @if (activeTab == 4)
+            {
+                <div class="row g-3 mb-4">
+                    <div class="col-12 border-bottom pb-2 mb-3">
+                        <h5 class="fw-bold text-teal" style="color: #0d9488;">
+                            <i class="bi bi-clock-history me-2"></i>Lifestyle & 24-Hour Dietary Recall Assessment
+                        </h5>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Water Consumption (Liters / Day)</label>
+                        <input type="number" step="0.5" class="form-control" @bind="patient.WaterConsumptionLiters" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Sleep Duration (Hours)</label>
+                        <input type="number" step="0.5" class="form-control" @bind="patient.DailySleepDurationHours" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Sleep Quality</label>
+                        <select class="form-select" @bind="patient.SleepQuality">
+                            <option value="Restful">Restful</option>
+                            <option value="Broken">Broken</option>
+                            <option value="Insomnia">Insomnia</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label mb-2">Emotional Eating Triggers:</label>
+                        <div class="d-flex flex-wrap gap-2 p-3 bg-light rounded border">
+                            @foreach (var tr in availableTriggers)
+                            {
+                                <div class="form-check me-3">
+                                    <input class="form-check-input" type="checkbox" id="trigger-@tr"
+                                           checked="@patient.EmotionalEatingTriggers.Contains(tr)"
+                                           @onchange="(e) => ToggleTrigger(tr, e.Value)" />
+                                    <label class="form-check-label fw-semibold small" for="trigger-@tr">@tr</label>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Meal Pattern & Habit</label>
+                        <select class="form-select" @bind="patient.MealFrequency">
+                            <option value="2 Meals">2 Main Meals</option>
+                            <option value="3 Meals">3 Main Meals</option>
+                            <option value="Small Frequent Meals">Small Frequent Meals (5-6 times/day)</option>
+                        </select>
+                    </div>
+
+                    <!-- 24-Hour Recall Slots -->
+                    <div class="col-12 mt-3">
+                        <h6 class="fw-bold text-dark mb-2">24-Hour Recall Intake Log</h6>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card p-3 bg-light border">
+                            <div class="d-flex justify-content-between mb-2">
+                                <label class="fw-bold text-dark">Breakfast</label>
+                                <input type="text" class="form-control form-control-sm w-auto" @bind="patient.RecallBreakfastTime" />
+                            </div>
+                            <textarea class="form-control" rows="2" placeholder="e.g. 2 parathas with curd and 1 cup tea" @bind="patient.RecallBreakfast"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card p-3 bg-light border">
+                            <div class="d-flex justify-content-between mb-2">
+                                <label class="fw-bold text-dark">Mid-Morning Snack</label>
+                                <input type="text" class="form-control form-control-sm w-auto" @bind="patient.RecallMidMorningTime" />
+                            </div>
+                            <textarea class="form-control" rows="2" placeholder="e.g. 1 apple or tea with biscuits" @bind="patient.RecallMidMorning"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card p-3 bg-light border">
+                            <div class="d-flex justify-content-between mb-2">
+                                <label class="fw-bold text-dark">Lunch</label>
+                                <input type="text" class="form-control form-control-sm w-auto" @bind="patient.RecallLunchTime" />
+                            </div>
+                            <textarea class="form-control" rows="2" placeholder="e.g. 2 rotis, rice, dal, vegetable curry, salad" @bind="patient.RecallLunch"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card p-3 bg-light border">
+                            <div class="d-flex justify-content-between mb-2">
+                                <label class="fw-bold text-dark">Evening Snack</label>
+                                <input type="text" class="form-control form-control-sm w-auto" @bind="patient.RecallEveningTime" />
+                            </div>
+                            <textarea class="form-control" rows="2" placeholder="e.g. Tea with roasted snacks or samosa" @bind="patient.RecallEvening"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card p-3 bg-light border">
+                            <div class="d-flex justify-content-between mb-2">
+                                <label class="fw-bold text-dark">Dinner</label>
+                                <input type="text" class="form-control form-control-sm w-auto" @bind="patient.RecallDinnerTime" />
+                            </div>
+                            <textarea class="form-control" rows="2" placeholder="e.g. 2 rotis, sabzi, dal" @bind="patient.RecallDinner"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card p-3 bg-light border">
+                            <div class="d-flex justify-content-between mb-2">
+                                <label class="fw-bold text-dark">Bedtime</label>
+                                <input type="text" class="form-control form-control-sm w-auto" @bind="patient.RecallBedtimeTime" />
+                            </div>
+                            <textarea class="form-control" rows="2" placeholder="e.g. 1 glass warm turmeric milk" @bind="patient.RecallBedtime"></textarea>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="card-footer bg-light p-3 d-flex justify-content-between align-items-center">
+            <div>
+                @if (activeTab > 1)
+                {
+                    <button class="btn btn-outline-secondary me-2 rounded-pill px-3" @onclick="() => activeTab--">
+                        <i class="bi bi-chevron-left me-1"></i> Previous
+                    </button>
+                }
+            </div>
+            <div class="d-flex gap-2">
+                @if (activeTab < 4)
+                {
+                    <button class="btn btn-primary rounded-pill px-3" @onclick="() => activeTab++">
+                        Next <i class="bi bi-chevron-right ms-1"></i>
+                    </button>
+                }
+                <button class="btn btn-emerald rounded-pill px-4 shadow-sm" @onclick="SavePatient">
+                    <i class="bi bi-check-lg me-1"></i> Save Profile
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string? Id { get; set; }
+
+    private Patient patient = new Patient();
+    private List<Disease> availableDiseases = new();
+    private int activeTab = 1;
+    private string statusMessage = string.Empty;
+
+    private readonly List<string> availableTriggers = new()
+    {
+        "Stress", "Boredom", "Anxiety", "Sadness", "Late Night Craving", "None"
+    };
+
+    protected override void OnInitialized()
+    {
+        availableDiseases = DataService.GetDiseases();
+
+        if (!string.IsNullOrEmpty(Id))
+        {
+            var existing = DataService.GetPatientById(Id);
+            if (existing != null)
+            {
+                patient = existing;
+            }
+        }
+    }
+
+    private void ToggleDisease(string diseaseName, object? isChecked)
+    {
+        bool b = isChecked is bool val && val;
+        if (b && !patient.ClinicalDiagnoses.Contains(diseaseName))
+        {
+            patient.ClinicalDiagnoses.Add(diseaseName);
+        }
+        else if (!b)
+        {
+            patient.ClinicalDiagnoses.Remove(diseaseName);
+        }
+    }
+
+    private void ToggleTrigger(string trigger, object? isChecked)
+    {
+        bool b = isChecked is bool val && val;
+        if (b && !patient.EmotionalEatingTriggers.Contains(trigger))
+        {
+            patient.EmotionalEatingTriggers.Add(trigger);
+        }
+        else if (!b)
+        {
+            patient.EmotionalEatingTriggers.Remove(trigger);
+        }
+    }
+
+    private string GetBmiBadgeClass(string category)
+    {
+        if (category.Contains("Underweight")) return "badge-bmi-underweight";
+        if (category.Contains("Normal")) return "badge-bmi-normal";
+        if (category.Contains("Overweight")) return "badge-bmi-overweight";
+        return "badge-bmi-obese";
+    }
+
+    private void SavePatient()
+    {
+        if (string.IsNullOrWhiteSpace(patient.Name))
+        {
+            statusMessage = "Please enter the Patient's Name.";
+            return;
+        }
+
+        DataService.SavePatient(patient);
+        statusMessage = "Patient clinical intake saved successfully!";
+        Navigation.NavigateTo("/");
+    }
+}

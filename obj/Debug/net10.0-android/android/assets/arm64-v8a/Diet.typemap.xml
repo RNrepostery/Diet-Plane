@@ -1,0 +1,10 @@
+<api type="debug" assembly-name="Diet" mvid="4d487d6932d34b199f7d7751c7d48bce">
+  <java-to-managed>
+    <entry java-name="crc645519fedf484ff1af/MainActivity" managed-name="Diet.MainActivity, Diet" managed-type-token-id="33554440" />
+    <entry java-name="crc645519fedf484ff1af/MainApplication" managed-name="Diet.MainApplication, Diet" managed-type-token-id="33554441" />
+  </java-to-managed>
+  <managed-to-java>
+    <entry java-name="crc645519fedf484ff1af/MainActivity" managed-name="Diet.MainActivity, Diet" managed-type-token-id="33554440" />
+    <entry java-name="crc645519fedf484ff1af/MainApplication" managed-name="Diet.MainApplication, Diet" managed-type-token-id="33554441" />
+  </managed-to-java>
+</api>

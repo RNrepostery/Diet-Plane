@@ -1,0 +1,15 @@
+<api>
+  <jcw-types>
+    <type name="MainActivity" package="crc645519fedf484ff1af" application_java_class="android.app.Application" mono_runtime_initialization="mono.MonoPackageManager.LoadApplication (context);" extends_type="crc6488302ad6e9e4df1a.MauiAppCompatActivity" partial_assembly_qualified_name="Diet.MainActivity, Diet">
+      <constructors>
+        <constructor name="MainActivity" method="n_.ctor:()V:" jni_signature="()V" managed_parameters="" retval="void" is_dynamically_registered="True" />
+        <constructor name="MainActivity" method="n_.ctor:(I)V:" jni_signature="(I)V" managed_parameters="System.Int32, System.Private.CoreLib" params="int p0" retval="void" is_dynamically_registered="True" super_call="p0" activate_call="p0" />
+      </constructors>
+    </type>
+    <type name="MainApplication" package="crc645519fedf484ff1af" application_java_class="android.app.Application" mono_runtime_initialization="mono.MonoPackageManager.LoadApplication (context);" extends_type="crc6488302ad6e9e4df1a.MauiApplication" is_application="True" partial_assembly_qualified_name="Diet.MainApplication, Diet" application_constructor="MainApplication" />
+  </jcw-types>
+  <acw-types partial-assembly-name="Diet" module-name="Diet.dll">
+    <type assembly-qualified-name="Diet.MainActivity, Diet, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="diet.MainActivity" java-key="crc645519fedf484ff1af.MainActivity" managed-key="Diet.MainActivity" partial-assembly-qualified-name="Diet.MainActivity, Diet" />
+    <type assembly-qualified-name="Diet.MainApplication, Diet, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="diet.MainApplication" java-key="crc645519fedf484ff1af.MainApplication" managed-key="Diet.MainApplication" partial-assembly-qualified-name="Diet.MainApplication, Diet" />
+  </acw-types>
+</api>

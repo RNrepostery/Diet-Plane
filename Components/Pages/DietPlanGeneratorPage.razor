@@ -1,0 +1,655 @@
+@page "/diet-plan-generator"
+@page "/diet-plan-generator/{PatientId}"
+@inject DataService DataService
+@inject NavigationManager Navigation
+
+<div class="container-fluid p-0">
+    <!-- Page Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-dark mb-1">
+                <i class="bi bi-journal-medical text-teal me-2" style="color: #0d9488;"></i>
+                Automated Clinical Diet Plan Generator
+            </h3>
+            <p class="text-secondary small mb-0">Smart filtering of contraindicated foods, automated macro matching, and dietitian override customizer.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary rounded-pill px-3" @onclick='() => Navigation.NavigateTo("/diet-plans")'>
+                <i class="bi bi-folder-fill me-1"></i> Saved Charts
+            </button>
+            <button class="btn btn-emerald rounded-pill px-4 shadow-sm" @onclick="SavePlan" disabled="@(selectedPatient == null)">
+                <i class="bi bi-check-circle-fill me-1"></i> Finalize & View Chart
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 1: Patient Selection Card -->
+    <div class="card card-custom p-4 mb-4">
+        <h5 class="fw-bold text-teal mb-3" style="color: #0d9488;">
+            <i class="bi bi-person-check-fill me-2"></i> Step 1: Select Patient from Clinical Registry
+        </h5>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label fw-bold">Select Patient Profile</label>
+                <select class="form-select form-select-lg" @onchange="OnPatientSelected">
+                    <option value="">-- Choose Registered Patient --</option>
+                    @foreach (var p in patients)
+                    {
+                        <option value="@p.Id" selected="@(selectedPatient?.Id == p.Id)">
+                            @p.Name (@p.Age yrs, @p.Gender - @p.PrimaryDietType)
+                        </option>
+                    }
+                </select>
+            </div>
+
+            @if (selectedPatient != null)
+            {
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Prescription Diet Plan Title</label>
+                    <input type="text" class="form-control form-control-lg" @bind="dietPlan.PlanTitle" placeholder="e.g. Therapeutic Diet Chart" />
+                </div>
+            }
+        </div>
+
+        <!-- Patient Clinical Snapshot Banner -->
+        @if (selectedPatient != null)
+        {
+            <div class="mt-4 p-3 bg-light rounded-3 border">
+                <div class="row align-items-center g-3">
+                    <div class="col-md-3 border-end">
+                        <small class="text-muted d-block font-monospace fs-8">PATIENT ANTHROPOMETRICS</small>
+                        <strong class="fs-5 text-dark">@selectedPatient.Name</strong>
+                        <div class="small text-secondary">Ht: <strong>@selectedPatient.HeightCm cm</strong> | Wt: <strong>@selectedPatient.WeightKg kg</strong></div>
+                        <div class="small">BMI: <span class="fw-bold text-teal">@selectedPatient.BMI kg/m²</span> (@selectedPatient.BMICategory)</div>
+                        <div class="small text-muted">Broca's IBW: <strong>@selectedPatient.IdealBodyWeightBroca kg</strong></div>
+                    </div>
+
+                    <div class="col-md-3 border-end">
+                        <small class="text-muted d-block font-monospace fs-8">METABOLIC EXPENDITURE</small>
+                        <div class="small text-dark">Harris-Benedict BMR: <strong>@selectedPatient.BMR kcal</strong></div>
+                        <div class="small text-dark">TDEE (@selectedPatient.ActivityLevel): <strong>@selectedPatient.TDEE kcal</strong></div>
+                        <div class="small text-success fw-bold">Strategy: @selectedPatient.CalorieGoalType</div>
+                    </div>
+
+                    <div class="col-md-3 border-end">
+                        <small class="text-muted d-block font-monospace fs-8">CLINICAL TARGET MACROS</small>
+                        <div class="fs-4 fw-bold text-teal" style="color: #0d9488;">
+                            @selectedPatient.RecommendedTargetCalories <span class="fs-7 text-muted">kcal/day</span>
+                        </div>
+                        <div class="small text-dark">
+                            <strong>C:</strong> @selectedPatient.TargetCarbsGrams g |
+                            <strong>P:</strong> @selectedPatient.TargetProteinGrams g |
+                            <strong>F:</strong> @selectedPatient.TargetFatGrams g
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <small class="text-muted d-block font-monospace fs-8">CLINICAL DIAGNOSES</small>
+                        <div class="badge bg-success mb-1">@selectedPatient.PrimaryDietType</div>
+                        @if (selectedPatient.ClinicalDiagnoses.Any())
+                        {
+                            <div class="small text-danger fw-semibold">
+                                <i class="bi bi-shield-exclamation me-1"></i> @string.Join(", ", selectedPatient.ClinicalDiagnoses)
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="small text-success">No active pathological diagnosis</div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- SMART FILTERING ALERT BANNER -->
+            <div class="mt-3 alert alert-warning border border-warning-subtle rounded-3 p-3 mb-0">
+                <div class="d-flex align-items-start gap-2">
+                    <i class="bi bi-shield-slash-fill text-danger fs-4 mt-1"></i>
+                    <div>
+                        <strong class="text-danger">Smart Clinical Filtering Active:</strong>
+                        <span> @safeFoodItems.Count safe food items available. </span>
+                        @if (excludedFoodItems.Any())
+                        {
+                            <strong class="text-dark">@excludedFoodItems.Count food items have been automatically filtered out</strong>
+                            <span> due to patient's clinical diagnoses:</span>
+                            <div class="d-flex flex-wrap gap-1 mt-2">
+                                @foreach (var exc in excludedFoodItems)
+                                {
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                        <i class="bi bi-slash-circle me-1"></i>@exc.Name (Contraindicated: @string.Join(", ", exc.ContraindicatedDiseases))
+                                    </span>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <span class="text-success fw-semibold">No food items restricted for this patient's profile.</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (selectedPatient != null)
+    {
+        <!-- Step 2: Live Macro & Calorie Breakdown Panel -->
+        <div class="card card-custom p-4 mb-4 border-teal shadow-sm" style="border-color: #0d9488 !important;">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
+                <div>
+                    <h5 class="fw-bold text-dark mb-0">
+                        <i class="bi bi-speedometer2 text-teal me-2" style="color: #0d9488;"></i>
+                        Real-Time Calorie & Macronutrient Tracker
+                    </h5>
+                    <small class="text-muted">Dynamic comparison against target macro requirements (1g C/P = 4 kcal, 1g F = 9 kcal)</small>
+                </div>
+                <div class="d-flex gap-2 align-items-center mt-2 mt-md-0">
+                    <button class="btn btn-sm btn-outline-teal rounded-pill" style="color: #0d9488; border-color: #0d9488;" @onclick="RegenerateAutomatedPlan">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Auto-Generate Optimal Meals
+                    </button>
+                    <span class="badge @GetCalorieStatusBadgeClass() fs-6 px-3 py-2">
+                        @GetCalorieStatusText()
+                    </span>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <!-- Calories Progress -->
+                <div class="col-md-3">
+                    <div class="p-3 bg-light rounded-3 border text-center h-100">
+                        <small class="text-muted d-block font-monospace fs-8">TOTAL CALORIES</small>
+                        <div class="fs-3 fw-bold text-dark">
+                            @dietPlan.TotalCalories / <span class="text-secondary fs-5">@selectedPatient.RecommendedTargetCalories</span>
+                        </div>
+                        <div class="progress mt-2" style="height: 10px;">
+                            <div class="progress-bar @(dietPlan.TotalCalories > selectedPatient.RecommendedTargetCalories * 1.1 ? "bg-danger" : "bg-teal")"
+                                 role="progressbar" style="width: @(Math.Min(100, (dietPlan.TotalCalories / (selectedPatient.RecommendedTargetCalories > 0 ? selectedPatient.RecommendedTargetCalories : 1)) * 100))%; background-color: #0d9488;"></div>
+                        </div>
+                        <small class="text-muted fs-8 mt-1 d-block">
+                            @(Math.Round((dietPlan.TotalCalories / (selectedPatient.RecommendedTargetCalories > 0 ? selectedPatient.RecommendedTargetCalories : 1)) * 100, 1))% of daily prescription
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Protein -->
+                <div class="col-md-3">
+                    <div class="p-3 bg-light rounded-3 border text-center h-100">
+                        <small class="text-muted d-block font-monospace fs-8">PROTEIN (PLANNED / TARGET)</small>
+                        <div class="fs-3 fw-bold text-primary">@dietPlan.TotalProtein <span class="fs-6 text-muted">/ @selectedPatient.TargetProteinGrams g</span></div>
+                        <div class="progress mt-2" style="height: 8px;">
+                            <div class="progress-bar bg-primary" role="progressbar" style="width: @(Math.Min(100, (dietPlan.TotalProtein / (selectedPatient.TargetProteinGrams > 0 ? selectedPatient.TargetProteinGrams : 1)) * 100))%;"></div>
+                        </div>
+                        <small class="text-muted fs-8 mt-1 d-block">@Math.Round(dietPlan.TotalProtein * 4, 0) kcal from Protein</small>
+                    </div>
+                </div>
+
+                <!-- Carbs -->
+                <div class="col-md-3">
+                    <div class="p-3 bg-light rounded-3 border text-center h-100">
+                        <small class="text-muted d-block font-monospace fs-8">CARBOHYDRATES (PLANNED / TARGET)</small>
+                        <div class="fs-3 fw-bold text-warning-emphasis">@dietPlan.TotalCarbs <span class="fs-6 text-muted">/ @selectedPatient.TargetCarbsGrams g</span></div>
+                        <div class="progress mt-2" style="height: 8px;">
+                            <div class="progress-bar bg-warning" role="progressbar" style="width: @(Math.Min(100, (dietPlan.TotalCarbs / (selectedPatient.TargetCarbsGrams > 0 ? selectedPatient.TargetCarbsGrams : 1)) * 100))%;"></div>
+                        </div>
+                        <small class="text-muted fs-8 mt-1 d-block">@Math.Round(dietPlan.TotalCarbs * 4, 0) kcal from Carbs</small>
+                    </div>
+                </div>
+
+                <!-- Fats & Fiber -->
+                <div class="col-md-3">
+                    <div class="p-3 bg-light rounded-3 border text-center h-100">
+                        <small class="text-muted d-block font-monospace fs-8">FATS / FIBER (PLANNED / TARGET)</small>
+                        <div class="fs-3 fw-bold text-secondary">@dietPlan.TotalFat <span class="fs-6 text-muted">/ @selectedPatient.TargetFatGrams g</span></div>
+                        <div class="progress mt-2" style="height: 8px;">
+                            <div class="progress-bar bg-secondary" role="progressbar" style="width: @(Math.Min(100, (dietPlan.TotalFat / (selectedPatient.TargetFatGrams > 0 ? selectedPatient.TargetFatGrams : 1)) * 100))%;"></div>
+                        </div>
+                        <small class="text-success fs-8 mt-1 d-block fw-bold">Fiber: @dietPlan.TotalFiber g | @Math.Round(dietPlan.TotalFat * 9, 0) kcal from Fat</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Meal Slots Planning & Admin Override -->
+        <div class="row g-4 mb-4">
+            @foreach (var slot in mealSlots)
+            {
+                var itemsInSlot = dietPlan.MealItems.Where(i => i.MealSlot == slot.Name).ToList();
+                double slotCalories = Math.Round(itemsInSlot.Sum(i => i.Calories), 1);
+                double slotProtein = Math.Round(itemsInSlot.Sum(i => i.Protein), 1);
+                double slotCarbs = Math.Round(itemsInSlot.Sum(i => i.Carbs), 1);
+                double slotFat = Math.Round(itemsInSlot.Sum(i => i.Fat), 1);
+
+                <div class="col-md-6">
+                    <div class="card card-custom h-100">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 border-bottom">
+                            <div>
+                                <h6 class="fw-bold mb-0 text-dark">
+                                    <i class="bi @slot.Icon text-teal me-2" style="color: #0d9488;"></i>
+                                    @slot.Name
+                                    <span class="badge bg-light text-secondary border ms-2">@slot.DefaultTime</span>
+                                </h6>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-danger-subtle text-danger fw-bold fs-7">@slotCalories kcal</span>
+                                <small class="text-muted d-block fs-8">P: @slotProtein g | C: @slotCarbs g | F: @slotFat g</small>
+                            </div>
+                        </div>
+
+                        <div class="card-body p-3">
+                            @if (!itemsInSlot.Any())
+                            {
+                                <div class="text-center py-3 bg-light rounded border border-dashed">
+                                    <small class="text-muted">No food items added for @slot.Name.</small>
+                                </div>
+                            }
+                            else
+                            {
+                                <ul class="list-group list-group-flush mb-3">
+                                    @foreach (var item in itemsInSlot)
+                                    {
+                                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 border-bottom">
+                                            <div style="flex: 1;">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="fw-bold text-dark">@item.FoodItemName</span>
+                                                    <span class="badge bg-teal-subtle text-teal border fs-8">@item.Quantity @item.Unit</span>
+                                                </div>
+                                                <small class="text-muted">
+                                                    <strong class="text-danger">@item.Calories kcal</strong> |
+                                                    P: <span class="text-primary fw-bold">@item.Protein g</span>,
+                                                    C: <span class="text-warning-emphasis fw-bold">@item.Carbs g</span>,
+                                                    F: <span class="text-secondary fw-bold">@item.Fat g</span>
+                                                </small>
+                                                @if (!string.IsNullOrEmpty(item.SpecialInstructions))
+                                                {
+                                                    <div class="fs-8 text-teal"><i class="bi bi-info-circle me-1"></i>@item.SpecialInstructions</div>
+                                                }
+                                            </div>
+                                            <div class="d-flex gap-1 align-items-center">
+                                                <button class="btn btn-sm btn-outline-primary border-0" title="Swap Item" @onclick="() => OpenSwapModal(item)">
+                                                    <i class="bi bi-arrow-left-right"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger border-0" title="Remove" @onclick="() => RemoveMealItem(item)">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+
+                            <button class="btn btn-sm btn-outline-teal w-100 rounded-pill mt-2" style="color: #0d9488; border-color: #0d9488;" @onclick="() => OpenAddItemModal(slot.Name, slot.DefaultTime)">
+                                <i class="bi bi-plus-lg me-1"></i> Add Safe Food Item
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Step 4: Fluid & Lifestyle Instructions -->
+        <div class="card card-custom p-4 mb-4">
+            <h5 class="fw-bold text-dark mb-3"><i class="bi bi-droplet-fill text-info me-2"></i> Clinical Instructions & Lifestyle Guidelines</h5>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Hydration Guidelines</label>
+                    <input type="text" class="form-control" @bind="dietPlan.FluidIntakeInstructions" placeholder="e.g. 3.0 Liters of water daily" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Contraindicated & Foods to Strict Avoid</label>
+                    <input type="text" class="form-control" @bind="dietPlan.AvoidFoodInstructions" placeholder="e.g. Refined sugar, saturated fats" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-bold">Dietitian Clinical Instructions & Notes</label>
+                    <textarea class="form-control" rows="2" @bind="dietPlan.GeneralNotes" placeholder="e.g. 20 min walk post dinner. Avoid screen during eating..."></textarea>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Modal to Pick Safe Food Item from Item Master -->
+@if (showAddModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content rounded-4 shadow border-0">
+                <div class="modal-header card-header-emerald text-white">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-basket me-2"></i> Add Safe Food Item to @currentSlotSlotName
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseAddModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-7">
+                            <label class="form-label fw-bold">Select Food Item (Filtered for Safety)</label>
+                            <select class="form-select form-select-lg" @onchange="OnMasterItemSelect">
+                                <option value="">-- Choose Safe Food Item --</option>
+                                @foreach (var master in safeFoodItems)
+                                {
+                                    <option value="@master.Id">
+                                        @master.Name (@master.ServingQuantity @master.StandardUnit - @master.Calories kcal, P:@master.Protein g)
+                                    </option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-5">
+                            <label class="form-label fw-bold">Portion Quantity (@selectedMasterItem?.StandardUnit)</label>
+                            <input type="number" step="5" min="1" class="form-control form-control-lg" @bind="selectedItemQuantity" @bind:event="oninput" />
+                        </div>
+                    </div>
+
+                    @if (selectedMasterItem != null)
+                    {
+                        <div class="p-3 bg-light rounded-3 border mb-3">
+                            <h6 class="fw-bold text-teal mb-2">Calculated Nutritional Yield for @selectedItemQuantity @selectedMasterItem.StandardUnit:</h6>
+                            <div class="row text-center g-2">
+                                <div class="col-3">
+                                    <div class="p-2 bg-white rounded border">
+                                        <small class="text-muted d-block">ENERGY</small>
+                                        <strong class="text-danger">@Math.Round(selectedMasterItem.CaloriesPerGram * selectedItemQuantity, 1) kcal</strong>
+                                    </div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="p-2 bg-white rounded border">
+                                        <small class="text-muted d-block">PROTEIN</small>
+                                        <strong class="text-primary">@Math.Round(selectedMasterItem.ProteinPerGram * selectedItemQuantity, 1) g</strong>
+                                    </div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="p-2 bg-white rounded border">
+                                        <small class="text-muted d-block">CARBS</small>
+                                        <strong class="text-warning-emphasis">@Math.Round(selectedMasterItem.CarbsPerGram * selectedItemQuantity, 1) g</strong>
+                                    </div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="p-2 bg-white rounded border">
+                                        <small class="text-muted d-block">FATS</small>
+                                        <strong class="text-secondary">@Math.Round(selectedMasterItem.FatPerGram * selectedItemQuantity, 1) g</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Special Clinical Instructions / Cooking Method (Optional)</label>
+                        <input type="text" class="form-control" placeholder="e.g. Cooked without salt, soaked overnight, steamed..." @bind="specialInstruction" />
+                    </div>
+                </div>
+                <div class="modal-footer bg-light p-3">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" @onclick="CloseAddModal">Cancel</button>
+                    <button type="button" class="btn btn-emerald rounded-pill px-4" @onclick="ConfirmAddMealItem" disabled="@(selectedMasterItem == null)">
+                        Add to @currentSlotSlotName
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal to Swap Food Item -->
+@if (showSwapModal && swapTargetItem != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-md modal-dialog-centered">
+            <div class="modal-content rounded-4 shadow border-0">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-arrow-left-right me-2"></i> Swap '@swapTargetItem.FoodItemName'
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => showSwapModal = false"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="small text-secondary mb-3">Select an alternative compatible food item from the safe list to replace this item:</p>
+                    <div class="list-group">
+                        @foreach (var alt in safeFoodItems.Where(f => f.Id != swapTargetItem.FoodItemId).Take(8))
+                        {
+                            <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" @onclick="() => ExecuteSwap(alt)">
+                                <div>
+                                    <div class="fw-bold">@alt.Name</div>
+                                    <small class="text-muted">@alt.ServingQuantity @alt.StandardUnit | P:@alt.Protein g, C:@alt.Carbs g, F:@alt.Fat g</small>
+                                </div>
+                                <span class="badge bg-danger">@alt.Calories kcal</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer bg-light p-3">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" @onclick="() => showSwapModal = false">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal for Restricted Food Warning Popup (Matching user requirement) -->
+@if (showRestrictionWarning)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.65); z-index: 1070;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 shadow-lg border-danger border-2 overflow-hidden">
+                <div class="modal-header bg-danger text-white py-3">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i> ⚠️ Food Not Allowed
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => showRestrictionWarning = false"></button>
+                </div>
+                <div class="modal-body p-4 text-center">
+                    <div class="display-5 text-danger mb-3">
+                        <i class="bi bi-shield-x"></i>
+                    </div>
+                    <h4 class="fw-bold text-dark mb-2">@restrictionWarningFoodName is restricted for @restrictionWarningDiseaseName.</h4>
+                    <p class="text-secondary small mb-0">
+                        This food item is classified as strictly prohibited in the <strong>Disease Master</strong> for the patient's active medical diagnoses. Adding this food to the clinical diet is prevented.
+                    </p>
+                </div>
+                <div class="modal-footer bg-light p-3 justify-content-center">
+                    <button type="button" class="btn btn-danger rounded-pill px-5 fw-bold shadow-sm" @onclick="() => showRestrictionWarning = false">
+                        <i class="bi bi-check2 me-1"></i> Understood
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string? PatientId { get; set; }
+
+    private List<Patient> patients = new();
+    private List<FoodItem> safeFoodItems = new();
+    private List<FoodItem> excludedFoodItems = new();
+    private Patient? selectedPatient;
+    private DietPlan dietPlan = new DietPlan();
+
+    private bool showAddModal = false;
+    private bool showSwapModal = false;
+    private bool showRestrictionWarning = false;
+    private string restrictionWarningFoodName = string.Empty;
+    private string restrictionWarningDiseaseName = string.Empty;
+    private DietPlanItem? swapTargetItem;
+    private string currentSlotSlotName = "Breakfast";
+    private string currentSlotTime = "08:30 AM";
+    private FoodItem? selectedMasterItem;
+    private double selectedItemQuantity = 100.0;
+    private string specialInstruction = string.Empty;
+
+    private class MealSlotConfig
+    {
+        public string Name { get; set; } = string.Empty;
+        public string DefaultTime { get; set; } = string.Empty;
+        public string Icon { get; set; } = string.Empty;
+    }
+
+    private readonly List<MealSlotConfig> mealSlots = new()
+    {
+        new MealSlotConfig { Name = "Breakfast", DefaultTime = "08:30 AM", Icon = "bi-cup-hot-fill" },
+        new MealSlotConfig { Name = "Mid-Morning", DefaultTime = "11:00 AM", Icon = "bi-apple" },
+        new MealSlotConfig { Name = "Lunch", DefaultTime = "01:30 PM", Icon = "bi-sun-fill" },
+        new MealSlotConfig { Name = "Evening", DefaultTime = "05:30 PM", Icon = "bi-cup-straw" },
+        new MealSlotConfig { Name = "Dinner", DefaultTime = "08:30 PM", Icon = "bi-moon-stars-fill" },
+        new MealSlotConfig { Name = "Bedtime", DefaultTime = "10:00 PM", Icon = "bi-cup" }
+    };
+
+    protected override void OnInitialized()
+    {
+        patients = DataService.GetPatients();
+
+        if (!string.IsNullOrEmpty(PatientId))
+        {
+            LoadPatient(PatientId);
+        }
+    }
+
+    private void OnPatientSelected(ChangeEventArgs e)
+    {
+        string id = e.Value?.ToString() ?? string.Empty;
+        if (!string.IsNullOrEmpty(id))
+        {
+            LoadPatient(id);
+        }
+        else
+        {
+            selectedPatient = null;
+        }
+    }
+
+    private void LoadPatient(string patientId)
+    {
+        selectedPatient = DataService.GetPatientById(patientId);
+        if (selectedPatient != null)
+        {
+            safeFoodItems = DataService.GetSafeFoodItemsForPatient(selectedPatient, out excludedFoodItems);
+            dietPlan = DataService.GenerateAutomatedPlan(selectedPatient);
+        }
+    }
+
+    private void RegenerateAutomatedPlan()
+    {
+        if (selectedPatient != null)
+        {
+            dietPlan = DataService.GenerateAutomatedPlan(selectedPatient);
+        }
+    }
+
+    private string GetCalorieStatusBadgeClass()
+    {
+        if (selectedPatient == null) return "bg-secondary";
+        double target = selectedPatient.RecommendedTargetCalories;
+        double diff = dietPlan.TotalCalories - target;
+
+        if (Math.Abs(diff) <= 100) return "bg-success";
+        if (diff > 100) return "bg-warning text-dark";
+        return "bg-info";
+    }
+
+    private string GetCalorieStatusText()
+    {
+        if (selectedPatient == null) return string.Empty;
+        double target = selectedPatient.RecommendedTargetCalories;
+        double diff = dietPlan.TotalCalories - target;
+
+        if (Math.Abs(diff) <= 100) return "Optimal Target Range (±100 kcal)";
+        if (diff > 100) return $"Surplus of +{Math.Round(diff, 0)} kcal";
+        return $"Deficit of {Math.Round(diff, 0)} kcal";
+    }
+
+    private void OpenAddItemModal(string slotName, string defaultTime)
+    {
+        currentSlotSlotName = slotName;
+        currentSlotTime = defaultTime;
+        selectedMasterItem = null;
+        selectedItemQuantity = 100.0;
+        specialInstruction = string.Empty;
+        showAddModal = true;
+    }
+
+    private void OnMasterItemSelect(ChangeEventArgs e)
+    {
+        string itemId = e.Value?.ToString() ?? string.Empty;
+        selectedMasterItem = safeFoodItems.FirstOrDefault(f => f.Id == itemId);
+        if (selectedMasterItem != null)
+        {
+            selectedItemQuantity = selectedMasterItem.ServingQuantity;
+        }
+    }
+
+    private void CloseAddModal() => showAddModal = false;
+
+    private void ConfirmAddMealItem()
+    {
+        if (selectedMasterItem == null) return;
+
+        // Backend & Frontend Validation: Check if food is restricted for patient's diseases
+        if (selectedPatient != null && DataService.IsFoodRestrictedForPatient(selectedPatient, selectedMasterItem, out var restrictedDisease))
+        {
+            restrictionWarningFoodName = selectedMasterItem.Name;
+            restrictionWarningDiseaseName = restrictedDisease;
+            showRestrictionWarning = true;
+            return;
+        }
+
+        dietPlan.MealItems.Add(new DietPlanItem
+        {
+            MealSlot = currentSlotSlotName,
+            TimeSlot = currentSlotTime,
+            FoodItemId = selectedMasterItem.Id,
+            FoodItemName = selectedMasterItem.Name,
+            Quantity = selectedItemQuantity,
+            Unit = selectedMasterItem.StandardUnit,
+            Calories = Math.Round(selectedMasterItem.CaloriesPerGram * selectedItemQuantity, 1),
+            Protein = Math.Round(selectedMasterItem.ProteinPerGram * selectedItemQuantity, 1),
+            Carbs = Math.Round(selectedMasterItem.CarbsPerGram * selectedItemQuantity, 1),
+            Fat = Math.Round(selectedMasterItem.FatPerGram * selectedItemQuantity, 1),
+            Fiber = Math.Round(selectedMasterItem.FiberPerGram * selectedItemQuantity, 1),
+            SpecialInstructions = specialInstruction
+        });
+        showAddModal = false;
+    }
+
+    private void RemoveMealItem(DietPlanItem item)
+    {
+        dietPlan.MealItems.Remove(item);
+    }
+
+    private void OpenSwapModal(DietPlanItem item)
+    {
+        swapTargetItem = item;
+        showSwapModal = true;
+    }
+
+    private void ExecuteSwap(FoodItem newItem)
+    {
+        if (swapTargetItem == null || newItem == null) return;
+
+        // Validation: Check if swap food is restricted for patient's diseases
+        if (selectedPatient != null && DataService.IsFoodRestrictedForPatient(selectedPatient, newItem, out var restrictedDisease))
+        {
+            restrictionWarningFoodName = newItem.Name;
+            restrictionWarningDiseaseName = restrictedDisease;
+            showRestrictionWarning = true;
+            return;
+        }
+
+        swapTargetItem.FoodItemId = newItem.Id;
+        swapTargetItem.FoodItemName = newItem.Name;
+        swapTargetItem.Quantity = newItem.ServingQuantity;
+        swapTargetItem.Unit = newItem.StandardUnit;
+        swapTargetItem.Calories = Math.Round(newItem.CaloriesPerGram * newItem.ServingQuantity, 1);
+        swapTargetItem.Protein = Math.Round(newItem.ProteinPerGram * newItem.ServingQuantity, 1);
+        swapTargetItem.Carbs = Math.Round(newItem.CarbsPerGram * newItem.ServingQuantity, 1);
+        swapTargetItem.Fat = Math.Round(newItem.FatPerGram * newItem.ServingQuantity, 1);
+        swapTargetItem.Fiber = Math.Round(newItem.FiberPerGram * newItem.ServingQuantity, 1);
+        showSwapModal = false;
+    }
+
+    private void SavePlan()
+    {
+        if (selectedPatient == null) return;
+        DataService.SaveDietPlan(dietPlan);
+        Navigation.NavigateTo($"/diet-plan/{dietPlan.Id}");
+    }
+}

@@ -1,0 +1,373 @@
+@page "/disease-master"
+@inject DataService DataService
+
+<div class="container-fluid p-0">
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-dark mb-1">
+                <i class="bi bi-shield-shaded text-teal me-2" style="color: #0d9488;"></i>
+                Disease Master Database
+            </h3>
+            <p class="text-secondary small mb-0">Manage clinical diseases, metabolic diagnoses, and dietary restriction guidelines for patient profiles.</p>
+        </div>
+        <button class="btn btn-emerald rounded-pill px-4 shadow-sm" @onclick="OpenAddModal">
+            <i class="bi bi-plus-lg me-1"></i> Add Clinical Disease
+        </button>
+    </div>
+
+    <!-- Filter & Search Bar -->
+    <div class="card card-custom p-3 mb-4">
+        <div class="row g-3">
+            <div class="col-md-7">
+                <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" class="form-control" placeholder="Search disease by name or guideline..." @bind="searchTerm" @bind:event="oninput" />
+                </div>
+            </div>
+            <div class="col-md-5">
+                <select class="form-select" @bind="selectedCategory">
+                    <option value="All">All Categories (@diseases.Count)</option>
+                    @foreach (var cat in categories)
+                    {
+                        <option value="@cat">@cat</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Diseases Grid Cards -->
+    <div class="row g-3">
+        @if (!FilteredDiseases.Any())
+        {
+            <div class="col-12">
+                <div class="card card-custom text-center py-5">
+                    <i class="bi bi-file-earmark-medical display-4 text-muted mb-2"></i>
+                    <h5 class="text-secondary">No clinical diagnoses match the search filter.</h5>
+                    <p class="text-muted small">Click 'Add Clinical Disease' to register a new disease master entry.</p>
+                </div>
+            </div>
+        }
+        else
+        {
+                    @foreach (var d in FilteredDiseases)
+                    {
+                        var restrictedFoods = GetRestrictedFoods(d);
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card card-custom h-100 p-4 border-start border-4" style="border-left-color: #0d9488 !important;">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <span class="badge @GetCategoryBadgeClass(d.Category)">@d.Category</span>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-light rounded-circle" @onclick="() => EditDisease(d)" title="Edit">
+                                            <i class="bi bi-pencil-fill text-primary"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-light rounded-circle ms-1" @onclick="() => DeleteDisease(d.Id)" title="Delete">
+                                            <i class="bi bi-trash-fill text-danger"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <h5 class="fw-bold text-dark mb-1">@d.Name</h5>
+                                <p class="text-secondary small mb-2">@d.Description</p>
+
+                                <div class="p-2.5 rounded-3 bg-light border mb-3">
+                                    <small class="text-teal fw-bold d-block mb-1" style="color: #0d9488;">
+                                        <i class="bi bi-journal-medical me-1"></i> Dietary Guidelines:
+                                    </small>
+                                    <small class="text-dark d-block">@d.DietaryGuidelines</small>
+                                </div>
+
+                                <!-- Restricted Foods List (Relationship: Disease -> Multiple Restricted Foods) -->
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <small class="fw-bold text-danger">
+                                            <i class="bi bi-slash-circle me-1"></i> Restricted Foods (@restrictedFoods.Count):
+                                        </small>
+                                    </div>
+                                    @if (restrictedFoods.Any())
+                                    {
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @foreach (var rf in restrictedFoods.Take(6))
+                                            {
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle fs-8">
+                                                    @rf.Name
+                                                </span>
+                                            }
+                                            @if (restrictedFoods.Count > 6)
+                                            {
+                                                <span class="badge bg-secondary-subtle text-secondary fs-8">+@(restrictedFoods.Count - 6) more</span>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <small class="text-muted fst-italic">No specific food items restricted yet.</small>
+                                    }
+                                </div>
+
+                                <div class="mt-auto d-flex justify-content-between align-items-center pt-2 border-top">
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                        @restrictedFoods.Count Foods Blocked
+                                    </span>
+                                    <small class="text-muted fs-8">Added @d.CreatedAt.ToString("MMM yyyy")</small>
+                                </div>
+                            </div>
+                        </div>
+                    }
+        }
+    </div>
+</div>
+
+<!-- Modal Dialog for Add / Edit Disease -->
+@if (showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5); z-index: 1050;">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content rounded-4 shadow border-0">
+                <div class="modal-header card-header-emerald text-white">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-clipboard-pulse me-2"></i>
+                        @(string.IsNullOrEmpty(editDisease.Id) || editDisease.Id == "0" ? "Add Clinical Disease Diagnosis" : "Edit Disease Master")
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label required fw-bold">Disease / Condition Name</label>
+                            <input type="text" class="form-control form-control-lg" placeholder="e.g. Diabetes / Sugar" @bind="editDisease.Name" required />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Medical Category</label>
+                            <select class="form-select form-select-lg" @bind="editDisease.Category">
+                                @foreach (var cat in categories)
+                                {
+                                    <option value="@cat">@cat</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Pathophysiological Description</label>
+                            <textarea class="form-control" rows="2" placeholder="e.g. Chronic hyperglycemia with insulin resistance..." @bind="editDisease.Description"></textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-bold text-teal" style="color: #0d9488;">Evidence-Based Dietary & Clinical Guidelines</label>
+                            <textarea class="form-control" rows="2" placeholder="e.g. Strict restriction of refined sugars, sweets, cakes, cold drinks..." @bind="editDisease.DietaryGuidelines"></textarea>
+                        </div>
+
+                        <!-- Search & Select Multiple Restricted Foods from Food Master -->
+                        <div class="col-12 border-top pt-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label fw-bold text-danger mb-0">
+                                    <i class="bi bi-slash-circle-fill me-1"></i> Select Restricted Foods / Meals (Food Master)
+                                </label>
+                                <span class="badge bg-danger rounded-pill">
+                                    @editDisease.RestrictedFoodIds.Count Selected
+                                </span>
+                            </div>
+                            <p class="text-secondary small mb-2">Search and select items from existing Food/Item Master that are strictly prohibited for this disease.</p>
+
+                            <!-- Selected Foods Chips -->
+                            @if (editDisease.RestrictedFoodIds.Any())
+                            {
+                                <div class="p-2 mb-2 bg-danger-subtle rounded-3 border border-danger-subtle d-flex flex-wrap gap-1">
+                                    @foreach (var foodId in editDisease.RestrictedFoodIds.ToList())
+                                    {
+                                        var foodItem = masterItems.FirstOrDefault(f => f.Id == foodId);
+                                        string foodDisplayName = foodItem?.Name ?? foodId;
+                                        <span class="badge bg-danger text-white d-inline-flex align-items-center gap-1 px-2 py-1 fs-7">
+                                            @foodDisplayName
+                                            <i class="bi bi-x-circle-fill" style="cursor: pointer;" @onclick="() => RemoveRestrictedFood(foodId)"></i>
+                                        </span>
+                                    }
+                                </div>
+                            }
+
+                            <!-- Search Input for Foods -->
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                                <input type="text" class="form-control" placeholder="Search foods (e.g. Sugar, Sweets, Cake, Cold Drink, Juice, Egg)..." 
+                                       @bind="foodSearchTerm" @bind:event="oninput" />
+                            </div>
+
+                            <!-- Food Selection List (Max height scroll) -->
+                            <div class="border rounded-3 p-2 bg-light" style="max-height: 200px; overflow-y: auto;">
+                                <div class="row g-2">
+                                    @foreach (var food in FilteredMasterFoods)
+                                    {
+                                        bool isRestricted = editDisease.RestrictedFoodIds.Contains(food.Id);
+                                        <div class="col-md-6">
+                                            <div class="p-2 rounded border bg-white d-flex justify-content-between align-items-center" 
+                                                 style="cursor: pointer; border-color: @(isRestricted ? "#ef4444 !important" : "#e2e8f0"); background: @(isRestricted ? "#fef2f2 !important" : "#ffffff");"
+                                                 @onclick="() => ToggleRestrictedFood(food.Id, food.Name)">
+                                                <div>
+                                                    <strong class="d-block small text-dark">@food.Name</strong>
+                                                    <small class="text-muted fs-8">@food.Category • @food.ServingQuantity@food.StandardUnit (@food.Calories kcal)</small>
+                                                </div>
+                                                <div>
+                                                    @if (isRestricted)
+                                                    {
+                                                        <span class="badge bg-danger"><i class="bi bi-check-lg"></i> Restricted</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-light text-secondary border">+ Add</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light p-3">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" @onclick="CloseModal">Cancel</button>
+                    <button type="button" class="btn btn-emerald rounded-pill px-4" @onclick="SaveDisease">
+                        <i class="bi bi-check-lg me-1"></i> Save Disease Record
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Disease> diseases = new();
+    private List<FoodItem> masterItems = new();
+    private string searchTerm = string.Empty;
+    private string foodSearchTerm = string.Empty;
+    private string selectedCategory = "All";
+
+    private bool showModal = false;
+    private Disease editDisease = new Disease();
+
+    private readonly List<string> categories = new()
+    {
+        "Metabolic", "Cardiovascular", "Renal", "Hepatic", "Endocrine", "Gastrointestinal", "Autoimmune", "Respiratory", "Other"
+    };
+
+    protected override void OnInitialized()
+    {
+        RefreshData();
+    }
+
+    private void RefreshData()
+    {
+        diseases = DataService.GetDiseases();
+        masterItems = DataService.GetMasterFoodItems();
+    }
+
+    private IEnumerable<Disease> FilteredDiseases => diseases.Where(d =>
+        (string.IsNullOrWhiteSpace(searchTerm) ||
+         d.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+         d.DietaryGuidelines.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+         d.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) &&
+        (selectedCategory == "All" || d.Category.Equals(selectedCategory, StringComparison.OrdinalIgnoreCase))
+    );
+
+    private IEnumerable<FoodItem> FilteredMasterFoods => masterItems.Where(f =>
+        string.IsNullOrWhiteSpace(foodSearchTerm) ||
+        f.Name.Contains(foodSearchTerm, StringComparison.OrdinalIgnoreCase) ||
+        f.Category.Contains(foodSearchTerm, StringComparison.OrdinalIgnoreCase)
+    );
+
+    private List<FoodItem> GetRestrictedFoods(Disease d)
+    {
+        return masterItems.Where(f => d.RestrictedFoodIds.Contains(f.Id) || 
+                                      d.RestrictedFoodNames.Contains(f.Name, StringComparer.OrdinalIgnoreCase) ||
+                                      f.ContraindicatedDiseases.Contains(d.Name, StringComparer.OrdinalIgnoreCase)).ToList();
+    }
+
+    private void ToggleRestrictedFood(string foodId, string foodName)
+    {
+        if (editDisease.RestrictedFoodIds.Contains(foodId))
+        {
+            editDisease.RestrictedFoodIds.Remove(foodId);
+            editDisease.RestrictedFoodNames.Remove(foodName);
+        }
+        else
+        {
+            editDisease.RestrictedFoodIds.Add(foodId);
+            if (!editDisease.RestrictedFoodNames.Contains(foodName))
+            {
+                editDisease.RestrictedFoodNames.Add(foodName);
+            }
+        }
+    }
+
+    private void RemoveRestrictedFood(string foodId)
+    {
+        editDisease.RestrictedFoodIds.Remove(foodId);
+        var item = masterItems.FirstOrDefault(f => f.Id == foodId);
+        if (item != null)
+        {
+            editDisease.RestrictedFoodNames.Remove(item.Name);
+        }
+    }
+
+    private string GetCategoryBadgeClass(string cat) => cat switch
+    {
+        "Metabolic" => "bg-primary-subtle text-primary border",
+        "Cardiovascular" => "bg-danger-subtle text-danger border border-danger-subtle",
+        "Renal" => "bg-warning-subtle text-warning-emphasis border",
+        "Hepatic" => "bg-info-subtle text-info-emphasis border",
+        "Endocrine" => "bg-purple-subtle text-purple border",
+        "Gastrointestinal" => "bg-success-subtle text-success border border-success-subtle",
+        "Autoimmune" => "bg-secondary-subtle text-dark border",
+        _ => "bg-light text-dark border"
+    };
+
+    private void OpenAddModal()
+    {
+        editDisease = new Disease();
+        foodSearchTerm = string.Empty;
+        showModal = true;
+    }
+
+    private void EditDisease(Disease d)
+    {
+        editDisease = new Disease
+        {
+            Id = d.Id,
+            Name = d.Name,
+            Category = d.Category,
+            Description = d.Description,
+            DietaryGuidelines = d.DietaryGuidelines,
+            RestrictedNutrients = new List<string>(d.RestrictedNutrients),
+            RestrictedFoodIds = new List<string>(d.RestrictedFoodIds),
+            RestrictedFoodNames = new List<string>(d.RestrictedFoodNames),
+            CreatedAt = d.CreatedAt
+        };
+        foodSearchTerm = string.Empty;
+        showModal = true;
+    }
+
+    private void CloseModal() => showModal = false;
+
+    private void SaveDisease()
+    {
+        if (string.IsNullOrWhiteSpace(editDisease.Name)) return;
+
+        // Ensure names are synchronized
+        editDisease.RestrictedFoodNames = masterItems
+            .Where(f => editDisease.RestrictedFoodIds.Contains(f.Id))
+            .Select(f => f.Name)
+            .ToList();
+
+        DataService.SaveDisease(editDisease);
+        showModal = false;
+        RefreshData();
+    }
+
+    private void DeleteDisease(string id)
+    {
+        DataService.DeleteDisease(id);
+        RefreshData();
+    }
+}

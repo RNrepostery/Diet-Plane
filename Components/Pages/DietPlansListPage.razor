@@ -1,0 +1,150 @@
+@page "/diet-plans"
+@inject DataService DataService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="container-fluid p-0">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-dark mb-1">
+                <i class="bi bi-file-earmark-medical-fill text-teal me-2" style="color: #0d9488;"></i>
+                Saved Clinical Diet Charts & Prescriptions
+            </h3>
+            <p class="text-secondary small mb-0">View, print, export to PDF, and share clinical nutrition therapy plans directly via WhatsApp.</p>
+        </div>
+        <button class="btn btn-emerald rounded-pill px-4 shadow-sm" @onclick='() => Navigation.NavigateTo("/diet-plan-generator")'>
+            <i class="bi bi-plus-lg me-1"></i> Prepare New Diet Plan
+        </button>
+    </div>
+
+    <!-- Search filter -->
+    <div class="card card-custom p-3 mb-4">
+        <div class="input-group">
+            <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" class="form-control" placeholder="Search by patient name, plan title..." @bind="searchTerm" @bind:event="oninput" />
+        </div>
+    </div>
+
+    <div class="card card-custom p-4">
+        @if (!FilteredPlans.Any())
+        {
+            <div class="text-center py-5">
+                <i class="bi bi-folder2-open display-4 text-muted mb-2"></i>
+                <h5 class="text-secondary">No diet charts match the criteria.</h5>
+                <p class="text-muted small">Select a patient and prepare an automated diet plan to view charts here.</p>
+                <button class="btn btn-emerald rounded-pill px-4 mt-2 shadow-sm" @onclick='() => Navigation.NavigateTo("/diet-plan-generator")'>
+                    <i class="bi bi-magic me-1"></i> Auto-Generate Plan
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Plan Details</th>
+                            <th>Patient Profile</th>
+                            <th>Calorie Strategy</th>
+                            <th>Total Planned Energy</th>
+                            <th>Macronutrient Yield</th>
+                            <th class="text-end">Prescription Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var plan in FilteredPlans)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="fw-bold text-dark">@plan.PlanTitle</div>
+                                    <small class="text-muted">
+                                        <i class="bi bi-calendar3 me-1"></i>@plan.CreatedDate.ToString("dd MMM yyyy, hh:mm tt") |
+                                        <span class="badge bg-light text-dark border">@plan.MealItems.Count meal items</span>
+                                    </small>
+                                </td>
+                                <td>
+                                    <span class="fw-bold text-teal" style="color: #0d9488;">@plan.PatientName</span>
+                                    @if (!string.IsNullOrEmpty(plan.PatientContact))
+                                    {
+                                        <small class="d-block text-muted">
+                                            <i class="bi bi-telephone me-1"></i>@plan.PatientContact
+                                        </small>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge bg-info-subtle text-info-emphasis border">@plan.CalorieGoalType</span>
+                                </td>
+                                <td>
+                                    <span class="fw-bold text-danger">@plan.TotalCalories kcal</span>
+                                    <small class="text-muted d-block fs-8">Target: @plan.TargetCalories kcal</small>
+                                </td>
+                                <td>
+                                    <div class="small">
+                                        <strong class="text-primary">P:</strong> @plan.TotalProtein g |
+                                        <strong class="text-warning-emphasis">C:</strong> @plan.TotalCarbs g |
+                                        <strong class="text-secondary">F:</strong> @plan.TotalFat g
+                                    </div>
+                                    <small class="text-success fs-8">Fiber: @plan.TotalFiber g</small>
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-success" title="Share via WhatsApp" @onclick="() => ShareWhatsApp(plan)">
+                                            <i class="bi bi-whatsapp"></i>
+                                        </button>
+                                        <button class="btn btn-outline-primary" title="View / Print PDF" @onclick='() => Navigation.NavigateTo($"/diet-plan/{plan.Id}")'>
+                                            <i class="bi bi-printer me-1"></i> View / PDF
+                                        </button>
+                                        <button class="btn btn-outline-danger" title="Delete Plan" @onclick="() => DeletePlan(plan.Id)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<DietPlan> plans = new();
+    private string searchTerm = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        RefreshData();
+    }
+
+    private void RefreshData()
+    {
+        plans = DataService.GetDietPlans();
+    }
+
+    private IEnumerable<DietPlan> FilteredPlans => string.IsNullOrWhiteSpace(searchTerm)
+        ? plans
+        : plans.Where(p =>
+            p.PlanTitle.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            p.PatientName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+        );
+
+    private async Task ShareWhatsApp(DietPlan plan)
+    {
+        string message = plan.GenerateWhatsAppMessage();
+        string cleanPhone = (plan.PatientContact ?? string.Empty).Replace(" ", "").Replace("-", "").Replace("+", "");
+        
+        string encodedText = Uri.EscapeDataString(message);
+        string whatsappUrl = string.IsNullOrEmpty(cleanPhone)
+            ? $"https://api.whatsapp.com/send?text={encodedText}"
+            : $"https://api.whatsapp.com/send?phone={cleanPhone}&text={encodedText}";
+
+        await JSRuntime.InvokeVoidAsync("open", whatsappUrl, "_blank");
+    }
+
+    private void DeletePlan(string id)
+    {
+        DataService.DeleteDietPlan(id);
+        RefreshData();
+    }
+}
