@@ -199,7 +199,8 @@ body {
     background-color: var(--bg-screen);
     padding: 4px 20px 8px 20px;
     flex-shrink: 0;
-    z-index: 40;
+    /* z-index: 40; */
+      z-index: 40;
 }
 
 .header-main-row {
