@@ -4,6 +4,16 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Clinical Dietetics — Mobile Phone Simulator</title>
+    <script>
+        // Automatic mobile redirect: If opened on an actual mobile device,
+        // open the full-screen mobile app directly (jaise normal phone me app khulti hai)
+        (function() {
+            const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent) || (window.innerWidth <= 650 && 'ontouchstart' in window);
+            if (isMobileDevice && !window.location.search.includes('force=desktop')) {
+                window.location.replace('/mobile.html');
+            }
+        })();
+    </script>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -331,7 +341,7 @@
     <!-- Realistic iPhone Frame -->
     <div class="iphone-device" id="phoneDevice">
         <div class="iphone-screen-frame">
-            <iframe src="mobile.html" id="mobileIframe" class="iphone-iframe" title="Clinical Dietetics Phone App"></iframe>
+            <iframe src="mobile.html?simulator=true" id="mobileIframe" class="iphone-iframe" title="Clinical Dietetics Phone App"></iframe>
         </div>
     </div>
 </main>
@@ -345,28 +355,32 @@
 <div class="qr-modal-backdrop" id="qrModalBackdrop" onclick="closeQrModal(event)">
     <div class="qr-modal" onclick="event.stopPropagation()">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="font-size: 1.15rem; font-weight: 700; color: #ffffff;">Open on Your Real Phone</h3>
+            <h3 style="font-size: 1.15rem; font-weight: 700; color: #ffffff;">📲 Open on Your Real Phone</h3>
             <button onclick="closeQrModal()" style="background: none; border: none; color: var(--studio-muted); font-size: 1.25rem; cursor: pointer;">
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
-        <p style="font-size: 0.82rem; color: var(--studio-muted); margin-top: 6px;">
-            Connect your phone to the same Wi-Fi network and scan or open the address below:
+        <p style="font-size: 0.85rem; color: #cbd5e1; margin-top: 8px; line-height: 1.4;">
+            Scan with your phone's camera to open as a <strong>normal full-screen mobile app</strong> (edge-to-edge, jaise phone me normal app khulti hai):
         </p>
 
         <!-- QR Code -->
         <div class="qr-code-box">
-            <img id="qrCodeImage" src="" alt="Wi-Fi QR Code" style="width: 170px; height: 170px; display: block;" />
+            <img id="qrCodeImage" src="" alt="Phone Web App QR Code" style="width: 175px; height: 175px; display: block; border-radius: 8px;" />
         </div>
 
         <div style="font-size: 0.8rem; color: var(--studio-muted);">Network Address:</div>
-        <div class="wifi-url-tag" id="wifiNetworkUrl" onclick="copyWifiUrl()">
+        <div class="wifi-url-tag" id="wifiNetworkUrl" onclick="copyWifiUrl()" title="Click to copy address">
             Detecting Wi-Fi IP...
         </div>
-        <div style="font-size: 0.72rem; color: var(--teal-bright); margin-top: 4px;">Tap to copy URL</div>
+        <div style="font-size: 0.72rem; color: var(--teal-bright); margin-top: 4px;">Tap address to copy</div>
 
-        <div style="margin-top: 18px;">
-            <button class="tool-btn" style="width: 100%; justify-content: center;" onclick="closeQrModal()">Close</button>
+        <div style="margin-top: 18px; display: flex; gap: 8px;">
+            <a id="btnDirectPhoneLink" href="/mobile.html" target="_blank" class="tool-btn tool-btn-primary" style="flex: 1; text-decoration: none; justify-content: center;">
+                <i class="bi bi-phone"></i>
+                <span>Open Mobile App</span>
+            </a>
+            <button class="tool-btn" style="padding: 0 16px;" onclick="closeQrModal()">Close</button>
         </div>
     </div>
 </div>
@@ -387,27 +401,37 @@
             const res = await fetch('/api/network-info');
             if (res.ok) {
                 networkInfo = await res.json();
-                const wifiEl = document.getElementById('wifiNetworkUrl');
-                if (wifiEl) {
-                    wifiEl.innerText = `${networkInfo.networkUrl}/mobile.html`;
-                }
-                const qrImg = document.getElementById('qrCodeImage');
-                if (qrImg) {
-                    const encoded = encodeURIComponent(`${networkInfo.networkUrl}/mobile.html`);
-                    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encoded}`;
-                }
+                updateQrAndUrl();
+                return;
             }
         } catch (e) {
             console.log("Network info fallback:", e);
-            const wifiEl = document.getElementById('wifiNetworkUrl');
-            if (wifiEl) {
-                wifiEl.innerText = `${window.location.origin}/mobile.html`;
-            }
-            const qrImg = document.getElementById('qrCodeImage');
-            if (qrImg) {
-                const encoded = encodeURIComponent(`${window.location.origin}/mobile.html`);
-                qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encoded}`;
-            }
+        }
+        updateQrAndUrl();
+    }
+
+    function updateQrAndUrl() {
+        const baseUrl = networkInfo.networkUrl || window.location.origin;
+        const targetUrl = `${baseUrl}/mobile.html`;
+        
+        const wifiEl = document.getElementById('wifiNetworkUrl');
+        if (wifiEl) {
+            wifiEl.innerText = targetUrl;
+        }
+
+        const directLink = document.getElementById('btnDirectPhoneLink');
+        if (directLink) {
+            directLink.href = targetUrl;
+        }
+
+        const qrImg = document.getElementById('qrCodeImage');
+        if (qrImg) {
+            const encoded = encodeURIComponent(targetUrl);
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encoded}`;
+            qrImg.onerror = function() {
+                // Fallback to Google Charts QR generator if qrserver fails
+                this.src = `https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encoded}`;
+            };
         }
     }
 

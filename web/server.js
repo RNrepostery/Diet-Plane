@@ -112,10 +112,27 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    const ua = (req.headers['user-agent'] || '').toLowerCase();
+    const isMobileDevice = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini|webos/.test(ua);
+
+    // If a real mobile device hits /simulator.html directly, redirect immediately to native full-screen mobile app
+    if ((reqPath === '/simulator.html' || reqPath === '/simulator') && isMobileDevice && !req.url.includes('force=desktop')) {
+        res.writeHead(302, { 'Location': '/mobile.html' });
+        res.end();
+        return;
+    }
+
     if (reqPath === '/' || reqPath === '') {
-        reqPath = '/simulator.html'; // Default to phone simulator UI like in user's image!
-    } else if (reqPath === '/phone' || reqPath === '/simulator') {
-        reqPath = '/simulator.html';
+        // Real phones / mobile browsers automatically open the full-screen mobile app!
+        if (isMobileDevice) {
+            reqPath = '/mobile.html';
+        } else {
+            reqPath = '/simulator.html';
+        }
+    } else if (reqPath === '/phone' || reqPath === '/mobile' || reqPath === '/app') {
+        reqPath = '/mobile.html';
+    } else if (reqPath === '/simulator') {
+        reqPath = isMobileDevice ? '/mobile.html' : '/simulator.html';
     } else if (reqPath === '/desktop' || reqPath === '/full') {
         reqPath = '/index.html';
     }
@@ -131,8 +148,9 @@ const server = http.createServer((req, res) => {
 
     fs.stat(filePath, (err, stats) => {
         if (err || !stats.isFile()) {
-            // Fallback to simulator.html or index.html
-            const fallbackPath = path.join(PUBLIC_DIR, 'simulator.html');
+            // Fallback to mobile.html for mobile, simulator.html for desktop
+            const fallbackFile = isMobileDevice ? 'mobile.html' : 'simulator.html';
+            const fallbackPath = path.join(PUBLIC_DIR, fallbackFile);
             fs.readFile(fallbackPath, (fallbackErr, content) => {
                 if (fallbackErr) {
                     res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -164,11 +182,10 @@ const localIp = getLocalIp();
 
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`=======================================================`);
-    console.log(`📱 Clinical Dietetics Phone Simulator & Mobile UI ready!`);
-    console.log(`👉 Local Simulator:     http://localhost:${PORT}`);
-    console.log(`👉 Phone Viewport:      http://localhost:${PORT}/simulator.html`);
-    console.log(`👉 Desktop Dashboard:   http://localhost:${PORT}/desktop`);
-    console.log(`🌐 Physical Phone Wifi: http://${localIp}:${PORT}`);
+    console.log(`📱 Clinical Dietetics Mobile Phone App Ready!`);
+    console.log(`📲 Open on Real Phone (Full Screen): http://${localIp}:${PORT}/mobile.html`);
+    console.log(`💻 Desktop Phone Simulator:          http://localhost:${PORT}`);
+    console.log(`🖥️ Full Desktop Web Dashboard:       http://localhost:${PORT}/desktop`);
     console.log(`=======================================================`);
 });
 

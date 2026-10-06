@@ -3,6 +3,10 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#f5f8fb" />
     <title>Clinical Dietetics — Admin & Multi-User Nutrition</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,6 +15,18 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="mobile.css" />
+    <script>
+        // Detect if loaded directly on phone vs inside desktop simulator iframe
+        (function() {
+            const inIframe = window.self !== window.top;
+            const isSimulator = new URLSearchParams(window.location.search).get('simulator') === 'true' || inIframe;
+            if (!isSimulator) {
+                document.documentElement.classList.add('real-phone-mode');
+            } else {
+                document.documentElement.classList.add('simulator-mode');
+            }
+        })();
+    </script>
 </head>
 <body>
 
