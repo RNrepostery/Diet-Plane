@@ -66,6 +66,19 @@ function initMobileAuth() {
     }
 }
 
+// Option for Patient / User to view their prescribed diets directly in read-only mode
+function enterAsPatientUser() {
+    currentRole = 'user';
+    currentUserTab = 'user-diet';
+    db.setRole('user');
+    const loginScreen = document.getElementById('mobileLoginScreen');
+    const appShell = document.getElementById('mobileAppShell');
+    if (loginScreen) loginScreen.style.display = 'none';
+    if (appShell) appShell.style.display = 'flex';
+    applyRole('user');
+    showToast('👤 Switched to Patient View (Read-Only Mode)');
+}
+
 // Full-screen mobile login submit
 function handleMobileFullscreenLogin(e) {
     if (e && e.preventDefault) e.preventDefault();
@@ -170,13 +183,21 @@ function onActiveUserChanged(userId) {
 // ROLE SWITCHING: ADMIN vs MULTIPLE USERS
 // ==========================================
 function setAppRole(role) {
-    if (!window.AdminAuth || !window.AdminAuth.isAuthenticated()) {
-        initMobileAuth();
-        return;
+    if (role === 'admin') {
+        const isAuthed = window.AdminAuth ? window.AdminAuth.isAuthenticated() : false;
+        if (!isAuthed) {
+            openAdminLoginModal();
+            return;
+        }
     }
     currentRole = role;
     db.setRole(role);
     applyRole(role);
+    if (role === 'user') {
+        showToast('👤 Switched to Patient View (Read-Only)');
+    } else {
+        showToast('🛡️ Switched to Admin Portal (Full Access)');
+    }
 }
 
 function openAdminLoginModal() {
@@ -304,15 +325,19 @@ function logoutAdmin() {
 }
 
 function applyRole(role) {
-    if (!window.AdminAuth || !window.AdminAuth.isAuthenticated()) {
-        initMobileAuth();
+    if (role === 'admin' && (!window.AdminAuth || !window.AdminAuth.isAuthenticated())) {
+        openAdminLoginModal();
         return;
     }
+
+    currentRole = role;
+    db.setRole(role);
 
     const btnAdmin = document.getElementById('btnRoleAdmin');
     const btnUser = document.getElementById('btnRoleUser');
     const userDropdownContainer = document.getElementById('userSelectorDropdownContainer');
     const logoutBtn = document.getElementById('btnAdminLogoutPill');
+    const roleNoticeBadge = document.getElementById('mobileRoleNoticeBadge');
 
     if (btnAdmin && btnUser) {
         btnAdmin.classList.toggle('active', role === 'admin');
@@ -326,6 +351,15 @@ function applyRole(role) {
     if (userDropdownContainer) {
         userDropdownContainer.style.display = role === 'user' ? 'flex' : 'none';
         setupUserDropdown();
+    }
+
+    if (roleNoticeBadge) {
+        if (role === 'user') {
+            roleNoticeBadge.style.display = 'flex';
+            roleNoticeBadge.innerHTML = `<i class="bi bi-shield-lock-fill"></i> <span>Patient View (Read-Only) • Admin rights required to add users, edit diets & delete</span>`;
+        } else {
+            roleNoticeBadge.style.display = 'none';
+        }
     }
 
     renderBottomNav();
@@ -364,6 +398,7 @@ function renderBottomNav() {
             </button>
         `;
     } else {
+        // Patients have no right to add users (no "New User" tab)
         nav.innerHTML = `
             <button class="nav-tab-btn ${currentUserTab === 'user-diet' ? 'active' : ''}" onclick="switchUserTab('user-diet')">
                 <i class="bi bi-journal-medical"></i>
@@ -372,10 +407,6 @@ function renderBottomNav() {
             <button class="nav-tab-btn ${currentUserTab === 'user-foods' ? 'active' : ''}" onclick="switchUserTab('user-foods')">
                 <i class="bi bi-egg-fried"></i>
                 <span>Inspect Food</span>
-            </button>
-            <button class="nav-tab-btn ${currentUserTab === 'onboarding' ? 'active' : ''}" onclick="startOnboardingFlow()">
-                <i class="bi bi-plus-circle-fill" style="color: var(--primary-green); font-size: 1.4rem;"></i>
-                <span>New User</span>
             </button>
             <button class="nav-tab-btn ${currentUserTab === 'user-profile' ? 'active' : ''}" onclick="switchUserTab('user-profile')">
                 <i class="bi bi-person-badge-fill"></i>
@@ -386,8 +417,13 @@ function renderBottomNav() {
 }
 
 function switchAdminTab(tab) {
+    if (currentRole !== 'admin') {
+        showToast("⚠️ Admin authentication required.");
+        openAdminLoginModal();
+        return;
+    }
     if (!window.AdminAuth || !window.AdminAuth.isAuthenticated()) {
-        initMobileAuth();
+        openAdminLoginModal();
         return;
     }
     currentAdminTab = tab;
@@ -396,8 +432,8 @@ function switchAdminTab(tab) {
 }
 
 function switchUserTab(tab) {
-    if (!window.AdminAuth || !window.AdminAuth.isAuthenticated()) {
-        initMobileAuth();
+    if (tab === 'onboarding' && currentRole !== 'admin') {
+        showToast("⚠️ Permission Denied: Only Admin can add users.");
         return;
     }
     currentUserTab = tab;
@@ -424,15 +460,14 @@ function handleMobileBack() {
 }
 
 function renderCurrentView() {
-    if (!window.AdminAuth || !window.AdminAuth.isAuthenticated()) {
-        initMobileAuth();
-        return;
-    }
-
     const container = document.getElementById('mobileCardSheet');
     if (!container) return;
 
     if (currentRole === 'admin') {
+        if (!window.AdminAuth || !window.AdminAuth.isAuthenticated()) {
+            openAdminLoginModal();
+            return;
+        }
         switch (currentAdminTab) {
             case 'admin-home':
                 renderAdminDashboard(container);
@@ -456,15 +491,16 @@ function renderCurrentView() {
                 renderAdminDashboard(container);
         }
     } else {
+        // Users cannot access onboarding or admin views
+        if (currentUserTab === 'onboarding') {
+            currentUserTab = 'user-diet';
+        }
         switch (currentUserTab) {
             case 'user-diet':
                 renderUserDietView(container);
                 break;
             case 'user-foods':
                 renderUserFoodInspector(container);
-                break;
-            case 'onboarding':
-                renderOnboardingStep();
                 break;
             case 'user-profile':
                 renderUserProfileView(container);
@@ -501,12 +537,12 @@ function setAppHeader(title, progressPct = 0, rightActionHtml = '', showBack = t
 // 1. EXACT ONBOARDING QUESTIONNAIRE (MATCHING USER'S 5 SCREENSHOTS)
 // =========================================================================
 function startOnboardingFlow() {
-    onboardingStep = 1;
-    if (currentRole === 'admin') {
-        currentAdminTab = 'onboarding';
-    } else {
-        currentUserTab = 'onboarding';
+    if (currentRole !== 'admin') {
+        showToast("⚠️ Permission Denied: Only Admin can add new users.");
+        return;
     }
+    onboardingStep = 1;
+    currentAdminTab = 'onboarding';
     renderBottomNav();
     renderOnboardingStep();
 }
@@ -1079,6 +1115,10 @@ function jumpToStep(s) {
 }
 
 function completeOnboardingFlow() {
+    if (currentRole !== 'admin') {
+        showToast("⚠️ Permission Denied: Only Admin can add users and generate diet plans.");
+        return;
+    }
     const age = 2026 - (onboardingData.yearOfBirth || 2000);
     const newUserData = {
         id: 'p-' + Date.now(),
@@ -1184,15 +1224,14 @@ function renderAdminDashboard(container) {
       <div class="admin-card-header" style="margin-top: 8px;">
             <div class="admin-card-title">
                 <i class="bi bi-stars" style="color: var(--primary-green);"></i>
-                <span>Featured Meal: Boiled Egg Nutrition</span>
+                <span>Featured Meal</span>
             </div>
             <span style="font-size: 0.75rem; color: var(--primary-green); font-weight: 700; cursor: pointer;" onclick="openMealLibrary()">
                 View All Meal Specs →
             </span>
         </div>
 
-        <!-- Updated wrapper with proper padding and centering -->
-     
+
 
         <!-- Quick User Management Shortcuts -->
         <div class="admin-card-header" style="margin-top: 10px;">
@@ -1470,6 +1509,10 @@ function renderAdminMealUploader(container) {
 
 function handleUploadMealSubmit(e) {
     e.preventDefault();
+    if (currentRole !== 'admin') {
+        showToast("⚠️ Permission Denied: Only Admin can upload new meals.");
+        return;
+    }
     const name = document.getElementById('upload_name').value.trim();
     const category = document.getElementById('upload_category').value;
     const serving = parseFloat(document.getElementById('upload_serving').value) || 100;
@@ -1675,15 +1718,24 @@ function renderMealInspectorModalContent() {
             <strong>Clinical Advice:</strong> ${inspectedMeal.notes || 'Nutrient-dense clinical food source.'}
         </div>
 
-        <!-- Quick Add to User Diet Button -->
-        <div style="display: flex; gap: 8px; margin-top: 16px;">
-            <button class="btn-onboarding-next" style="flex: 2; height: 46px; font-size: 0.88rem;" onclick="addInspectedMealToActiveUserDiet()">
-                <i class="bi bi-plus-circle-fill"></i> Add to User Diet
-            </button>
-            <button class="btn-user-action danger" style="flex: 1; height: 46px; font-size: 0.82rem;" onclick="deleteInspectedMeal('${inspectedMeal.id}')">
-                <i class="bi bi-trash-fill"></i> Delete
-            </button>
-        </div>
+        <!-- Action Buttons: Admin has Add & Delete, User has Read-Only Notice -->
+        ${currentRole === 'admin' ? `
+            <div style="display: flex; gap: 8px; margin-top: 16px;">
+                <button class="btn-onboarding-next" style="flex: 2; height: 46px; font-size: 0.88rem;" onclick="addInspectedMealToActiveUserDiet()">
+                    <i class="bi bi-plus-circle-fill"></i> Add to User Diet
+                </button>
+                <button class="btn-user-action danger" style="flex: 1; height: 46px; font-size: 0.82rem;" onclick="deleteInspectedMeal('${inspectedMeal.id}')">
+                    <i class="bi bi-trash-fill"></i> Delete
+                </button>
+            </div>
+        ` : `
+            <div class="user-role-notice-card">
+                <i class="bi bi-shield-lock-fill" style="color: #059669; font-size: 1.25rem;"></i>
+                <div style="font-size: 0.76rem; color: #166534; line-height: 1.35;">
+                    <strong>Prescribed Diet Plan:</strong> This nutritional information is for personal reference. Only Administrator has rights to add foods to diets or delete meals.
+                </div>
+            </div>
+        `}
     `;
 }
 
@@ -1693,6 +1745,10 @@ function setInspectedPortion(qty) {
 }
 
 function addInspectedMealToActiveUserDiet() {
+    if (currentRole !== 'admin') {
+        showToast("⚠️ Permission Denied: Only Admin can add meals to a user's diet.");
+        return;
+    }
     if (!inspectedMeal) return;
     const user = db.getActiveUser();
     if (!user) {
@@ -1711,14 +1767,14 @@ function addInspectedMealToActiveUserDiet() {
     closeMobileModal();
     showToast(`Added ${inspectedMeal.name} (${inspectedPortion}g) to ${user.name}'s Diet!`);
     
-    if (currentRole === 'admin') {
-        switchAdminTab('admin-diet-editor');
-    } else {
-        switchUserTab('user-diet');
-    }
+    switchAdminTab('admin-diet-editor');
 }
 
 function deleteInspectedMeal(foodId) {
+    if (currentRole !== 'admin') {
+        showToast("⚠️ Permission Denied: Only Admin can delete meals.");
+        return;
+    }
     if (confirm("Are you sure you want to delete this meal from the database?")) {
         db.deleteFood(foodId);
         closeMobileModal();
@@ -1816,6 +1872,10 @@ function renderAdminUsersHub(container) {
 }
 
 function openDietEditorForUser(userId) {
+    if (currentRole !== 'admin') {
+        showToast("⚠️ Permission Denied: Only Admin can edit user diets.");
+        return;
+    }
     editorUserId = userId;
     activeUserId = userId;
     db.setActiveUser(userId);
@@ -1823,6 +1883,10 @@ function openDietEditorForUser(userId) {
 }
 
 function deleteUserConfirm(userId) {
+    if (currentRole !== 'admin') {
+        showToast("⚠️ Permission Denied: Only Admin can delete users.");
+        return;
+    }
     const user = db.getUser(userId);
     if (!user) return;
 
@@ -1836,6 +1900,10 @@ function deleteUserConfirm(userId) {
 
 // Edit User Demographics Modal
 function openEditUserModal(userId) {
+    if (currentRole !== 'admin') {
+        showToast("⚠️ Permission Denied: Only Admin can edit user profiles.");
+        return;
+    }
     const user = db.getUser(userId);
     if (!user) return;
 
@@ -1920,6 +1988,10 @@ function openEditUserModal(userId) {
 
 function handleEditUserSubmit(e, userId) {
     e.preventDefault();
+    if (currentRole !== 'admin') {
+        showToast("⚠️ Permission Denied: Only Admin can update user profiles.");
+        return;
+    }
     const year = parseInt(document.getElementById('edit_year').value) || 2000;
     const updates = {
         name: document.getElementById('edit_name').value.trim(),
@@ -2069,6 +2141,10 @@ function renderAdminDietEditor(container) {
 }
 
 function openAddMealToSlotModal(userId, slot) {
+    if (currentRole !== 'admin') {
+        showToast("⚠️ Permission Denied: Only Admin can add meals to diets.");
+        return;
+    }
     const sheet = document.getElementById('mobileModalSheet');
     if (!sheet) return;
 
@@ -2134,6 +2210,10 @@ function onSlotFoodSelected(foodId) {
 }
 
 function confirmAddMealToSlot(userId, slot) {
+    if (currentRole !== 'admin') {
+        showToast("⚠️ Permission Denied: Only Admin can add meals to diets.");
+        return;
+    }
     const foodId = document.getElementById('slot_food_select').value;
     const qty = parseFloat(document.getElementById('slot_food_qty').value) || 50;
     const inst = document.getElementById('slot_food_inst').value;
@@ -2152,12 +2232,20 @@ function confirmAddMealToSlot(userId, slot) {
 }
 
 function removeMealFromPlan(userId, itemId) {
+    if (currentRole !== 'admin') {
+        showToast("⚠️ Permission Denied: Only Admin can delete meals from diet plans.");
+        return;
+    }
     db.removeMealFromUserDiet(userId, itemId);
     showToast("Item removed.");
     renderAdminDietEditor(document.getElementById('mobileCardSheet'));
 }
 
 function quickAdjustMealQty(userId, itemId, delta) {
+    if (currentRole !== 'admin') {
+        showToast("⚠️ Permission Denied: Only Admin can adjust meal portions.");
+        return;
+    }
     const plan = db.getUserDiet(userId);
     const item = plan?.mealItems?.find(i => i.id === itemId);
     if (!item) return;
@@ -2168,6 +2256,10 @@ function quickAdjustMealQty(userId, itemId, delta) {
 }
 
 function saveUserDietPlan(userId) {
+    if (currentRole !== 'admin') {
+        showToast("⚠️ Permission Denied: Only Admin can save diet plans.");
+        return;
+    }
     const plan = db.getUserDiet(userId);
     if (plan) {
         db.savePlan(plan);
@@ -2196,7 +2288,8 @@ function renderUserDietView(container) {
         return;
     }
 
-    setAppHeader(`My Diet: ${user.name}`, 0, `<span onclick="startOnboardingFlow()"><i class="bi bi-person-plus"></i> New</span>`, false);
+    // Patient view has no right to add users - clean prescribed badge
+    setAppHeader(`My Diet: ${user.name}`, 0, `<span class="header-read-only-badge"><i class="bi bi-shield-check"></i> Prescribed</span>`, false);
 
     const plan = db.getUserDiet(user.id);
     const slots = ['Breakfast', 'Mid-Morning', 'Lunch', 'Evening', 'Dinner', 'Bedtime'];
@@ -2600,6 +2693,10 @@ function renderAdminDiseaseMaster(container) {
 }
 
 function openMobileDiseaseModal(diseaseId = null) {
+    if (currentRole !== 'admin') {
+        showToast("⚠️ Permission Denied: Only Admin can manage diseases.");
+        return;
+    }
     const d = diseaseId ? db.getDisease(diseaseId) : {
         id: 'd-' + Date.now(),
         name: '',
@@ -2777,6 +2874,10 @@ function removeMobileModalRestrictedFood(foodId) {
 }
 
 function saveMobileDiseaseRecord(id) {
+    if (currentRole !== 'admin') {
+        showToast("⚠️ Permission Denied: Only Admin can save disease records.");
+        return;
+    }
     const name = document.getElementById('mob_disease_name').value.trim();
     const category = document.getElementById('mob_disease_category').value;
     const desc = document.getElementById('mob_disease_desc').value.trim();
@@ -2805,6 +2906,10 @@ function saveMobileDiseaseRecord(id) {
 }
 
 function deleteMobileDiseaseConfirm(diseaseId) {
+    if (currentRole !== 'admin') {
+        showToast("⚠️ Permission Denied: Only Admin can delete diseases.");
+        return;
+    }
     const d = db.getDisease(diseaseId);
     if (!d) return;
 

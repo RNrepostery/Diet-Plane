@@ -438,10 +438,12 @@ function handleGlobalSearch(term) {
 }
 
 function deletePatient(id) {
+    if (!window.AdminAuth || !window.AdminAuth.isAuthenticated()) {
+        showToast('⚠️ Admin authentication required to delete patient profile.');
+        return;
+    }
     if (confirm('Are you sure you want to delete this patient profile and associated diet plans?')) {
-        db.patients = db.patients.filter(p => p.id !== id);
-        db.plans = db.plans.filter(dp => dp.patientId !== id);
-        db.save();
+        db.deletePatient(id);
         navigateTo('dashboard');
     }
 }
@@ -1311,6 +1313,10 @@ function saveDiseaseRecord(id) {
 }
 
 function deleteDisease(id) {
+    if (!window.AdminAuth || !window.AdminAuth.isAuthenticated()) {
+        showToast('⚠️ Admin authentication required to delete disease.');
+        return;
+    }
     const disease = db.getDisease(id);
     const diseaseName = disease ? disease.name : 'this disease';
     if (confirm(`Are you sure you want to delete "${diseaseName}" from Disease Master?`)) {
@@ -1711,9 +1717,12 @@ function saveFoodRecord(id) {
 }
 
 function deleteFood(id) {
+    if (!window.AdminAuth || !window.AdminAuth.isAuthenticated()) {
+        showToast('⚠️ Admin authentication required to delete food item.');
+        return;
+    }
     if (confirm('Are you sure you want to delete this food item from master database?')) {
-        db.foods = db.foods.filter(f => f.id !== id);
-        db.save();
+        db.deleteFood(id);
         renderMasterItems(document.getElementById('mainContent'));
     }
 }
@@ -2397,9 +2406,12 @@ function renderDietPlans(container) {
 }
 
 function deleteDietPlan(planId) {
+    if (!window.AdminAuth || !window.AdminAuth.isAuthenticated()) {
+        showToast('⚠️ Admin authentication required to delete diet chart.');
+        return;
+    }
     if (confirm('Are you sure you want to delete this diet chart?')) {
-        db.plans = db.plans.filter(p => p.id !== planId);
-        db.save();
+        db.deletePlan(planId);
         renderDietPlans(document.getElementById('mainContent'));
     }
 }

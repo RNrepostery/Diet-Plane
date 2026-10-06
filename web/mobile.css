@@ -1780,3 +1780,68 @@ body {
     overflow: hidden;
 }
 
+/* Patient / User Entry & Role Notice Banners */
+.mobile-btn-patient-entry {
+    width: 100%;
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    padding: 11px 14px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.mobile-btn-patient-entry:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.mobile-role-notice-banner {
+    background: #f0fdf4;
+    border-bottom: 1px solid #dcfce7;
+    color: #166534;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 6px 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mobile-role-notice-banner i {
+    font-size: 0.85rem;
+    color: #059669;
+}
+
+.user-role-notice-card {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.header-read-only-badge {
+    background: rgba(13, 148, 136, 0.1);
+    color: #0d9488;
+    border: 1px solid rgba(13, 148, 136, 0.25);
+    border-radius: 9999px;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+

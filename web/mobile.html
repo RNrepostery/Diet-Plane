@@ -95,9 +95,17 @@
 
                 <button type="submit" class="mobile-btn-submit" id="mobileLoginSubmitBtn">
                     <i class="bi bi-box-arrow-in-right"></i>
-                    <span>Sign In & Unlock App</span>
+                    <span>Sign In to Admin Portal</span>
                 </button>
             </form>
+
+            <!-- Option for Patients/Users to enter directly with read-only diet view -->
+            <div style="margin: 10px 0 6px 0;">
+                <button type="button" class="mobile-btn-patient-entry" onclick="enterAsPatientUser()">
+                    <i class="bi bi-people-fill" style="color: #0d9488;"></i>
+                    <span>Continue as Patient / User (View Diet)</span>
+                </button>
+            </div>
 
             <div class="mobile-creds-box">
                 <div class="mobile-creds-header">
@@ -114,12 +122,12 @@
 
             <div class="mobile-login-footer">
                 <i class="bi bi-shield-check"></i>
-                <span>Offline-First Encrypted Medical Session</span>
+                <span>Admin required to add users, edit diets & delete</span>
             </div>
         </div>
     </div>
 
-    <!-- Phone App Shell: Only rendered and accessible after Admin Authenticates -->
+    <!-- Phone App Shell: Only rendered and accessible after Admin Authenticates or Patient selects View -->
     <div id="mobileAppShell" class="mobile-app-shell" style="display: none;">
         <!-- App Role Selector Bar (Switch Between Admin & Multiple Users) -->
         <div class="role-selector-bar">
@@ -145,6 +153,9 @@
                 </select>
             </div>
         </div>
+
+        <!-- Role Notice Banner (Active for Patient / User Mode) -->
+        <div id="mobileRoleNoticeBadge" class="mobile-role-notice-banner" style="display: none;"></div>
 
         <!-- Screen Navigation Header (Matching screenshot with back arrow, category title, progress bar) -->
         <header class="app-screen-header" id="appScreenHeader">

@@ -991,6 +991,10 @@ class ClinicalDatabase {
     }
 
     saveDisease(diseaseData) {
+        if (!this.isAdmin()) {
+            console.warn('Access Denied: Only Admin can add or edit diseases.');
+            return null;
+        }
         if (!diseaseData) return null;
         if (!diseaseData.restrictedFoodIds) diseaseData.restrictedFoodIds = [];
 
@@ -1016,6 +1020,10 @@ class ClinicalDatabase {
     }
 
     deleteDisease(id) {
+        if (!this.isAdmin()) {
+            console.warn('Access Denied: Only Admin can delete diseases.');
+            return false;
+        }
         const disease = this.getDisease(id);
         const name = disease?.name;
         const idx = this.diseases.findIndex(d => d.id === id);
@@ -1120,6 +1128,10 @@ class ClinicalDatabase {
     // ==========================================
     // ROLE & MULTI-USER STATE MANAGEMENT
     // ==========================================
+    isAdmin() {
+        return this.activeRole === 'admin';
+    }
+
     setRole(role) {
         this.activeRole = role === 'user' ? 'user' : 'admin';
         localStorage.setItem('diet_active_role', this.activeRole);
@@ -1154,6 +1166,10 @@ class ClinicalDatabase {
     }
 
     savePatient(patientData) {
+        if (!this.isAdmin()) {
+            console.warn('Access Denied: Only Admin can add or edit users.');
+            return null;
+        }
         if (!patientData.id) {
             patientData.id = 'p-' + Date.now();
             patientData.createdAt = new Date().toISOString();
@@ -1175,6 +1191,10 @@ class ClinicalDatabase {
     }
 
     deletePatient(id) {
+        if (!this.isAdmin()) {
+            console.warn('Access Denied: Only Admin can delete users.');
+            return false;
+        }
         const idx = this.patients.findIndex(p => p.id === id);
         if (idx >= 0) {
             this.patients.splice(idx, 1);
@@ -1248,10 +1268,18 @@ class ClinicalDatabase {
     }
 
     uploadMeal(mealData) {
+        if (!this.isAdmin()) {
+            console.warn('Access Denied: Only Admin can upload meals.');
+            return null;
+        }
         return this.saveFood(mealData);
     }
 
     deleteFood(id) {
+        if (!this.isAdmin()) {
+            console.warn('Access Denied: Only Admin can delete food.');
+            return false;
+        }
         const idx = this.foods.findIndex(f => f.id === id);
         if (idx >= 0) {
             this.foods.splice(idx, 1);
@@ -1316,6 +1344,10 @@ class ClinicalDatabase {
     }
 
     savePlan(plan) {
+        if (!this.isAdmin()) {
+            console.warn('Access Denied: Only Admin can save diet plans.');
+            return null;
+        }
         this.recalculatePlanTotals(plan);
         const idx = this.plans.findIndex(p => p.id === plan.id);
         if (idx >= 0) {
@@ -1332,6 +1364,10 @@ class ClinicalDatabase {
     }
 
     deletePlan(id) {
+        if (!this.isAdmin()) {
+            console.warn('Access Denied: Only Admin can delete diet plans.');
+            return false;
+        }
         const idx = this.plans.findIndex(p => p.id === id);
         if (idx >= 0) {
             this.plans.splice(idx, 1);
@@ -1357,6 +1393,12 @@ class ClinicalDatabase {
     }
 
     addMealToUserDiet(userId, slot, foodId, quantity, instructions = '') {
+        if (!this.isAdmin()) {
+            return {
+                success: false,
+                error: 'Access Denied: Only Admin can add meals to a diet.'
+            };
+        }
         const plan = this.getUserDiet(userId);
         const food = this.getFood(foodId);
         if (!plan || !food) return null;
@@ -1404,6 +1446,10 @@ class ClinicalDatabase {
     }
 
     removeMealFromUserDiet(userId, itemId) {
+        if (!this.isAdmin()) {
+            console.warn('Access Denied: Only Admin can remove meals from a diet.');
+            return false;
+        }
         const plan = this.getUserDiet(userId);
         if (!plan) return false;
         const idx = plan.mealItems.findIndex(i => i.id === itemId);
@@ -1416,6 +1462,10 @@ class ClinicalDatabase {
     }
 
     updateMealInUserDiet(userId, itemId, updates) {
+        if (!this.isAdmin()) {
+            console.warn('Access Denied: Only Admin can update meals in a diet.');
+            return null;
+        }
         const plan = this.getUserDiet(userId);
         if (!plan) return false;
         const item = plan.mealItems.find(i => i.id === itemId);
