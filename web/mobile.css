@@ -487,9 +487,32 @@ body {
 }
 
 .cutlery-circle.one-meal { background: var(--eat-cyan); }
-.cutlery-circle.two-meals { background: var(--eat-lime); }
-.cutlery-circle.three-meals { background: var(--eat-amber); }
+.cutlery-circle.two-meals { background: #10b981; }
+.cutlery-circle.three-meals { background: #f59e0b; }
+.cutlery-circle.four-meals { background: #06b6d4; }
+.cutlery-circle.five-meals { background: #3b82f6; }
+.cutlery-circle.six-meals { background: #ec4899; }
 .cutlery-circle.more-meals { background: var(--eat-coral); }
+
+.admin-logout-chip {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 9999px;
+    padding: 4px 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+}
+
+.admin-logout-chip:hover {
+    background: #ef4444;
+    color: #ffffff;
+}
 
 .select-card-label {
     font-size: 1.05rem;
@@ -1505,3 +1528,255 @@ body {
 .btn-warning-dismiss:active {
     transform: scale(0.98);
 }
+
+/* ========================================================
+   PHONE FULL-SCREEN ADMIN AUTHENTICATION
+   ======================================================== */
+.mobile-login-screen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 24px 18px;
+    background: #ffffff;
+    overflow-y: auto;
+    width: 100%;
+    z-index: 50;
+}
+
+.mobile-login-card {
+    width: 100%;
+    max-width: 360px;
+    margin: auto;
+    animation: mobileFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes mobileFadeIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.mobile-login-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.mobile-login-logo {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #0d9488 0%, #10b981 100%);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.45rem;
+    box-shadow: 0 6px 16px rgba(13, 148, 136, 0.3);
+    flex-shrink: 0;
+}
+
+.mobile-login-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--navy-900);
+    margin: 0;
+    line-height: 1.2;
+}
+
+.mobile-login-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #0d9488;
+    background: rgba(13, 148, 136, 0.1);
+    padding: 2px 7px;
+    border-radius: 5px;
+    margin-top: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.mobile-login-header {
+    margin-bottom: 16px;
+}
+
+.mobile-login-heading {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--navy-900);
+    margin: 0 0 4px 0;
+}
+
+.mobile-login-sub {
+    font-size: 0.78rem;
+    color: var(--slate-500);
+    line-height: 1.45;
+    margin: 0;
+}
+
+.mobile-login-alert {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #b91c1c;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mobile-form-group {
+    margin-bottom: 12px;
+}
+
+.mobile-form-label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--navy-800);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.mobile-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.mobile-input-icon {
+    position: absolute;
+    left: 12px;
+    color: var(--slate-400);
+    font-size: 0.95rem;
+    pointer-events: none;
+}
+
+.mobile-input-field {
+    width: 100%;
+    padding: 10px 38px 10px 36px;
+    font-family: inherit;
+    font-size: 0.88rem;
+    color: var(--navy-900);
+    background: #f8fafc;
+    border: 1.5px solid var(--slate-200);
+    border-radius: 10px;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.mobile-input-field:focus {
+    background: #ffffff;
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+}
+
+.mobile-eye-btn {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    color: var(--slate-400);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-btn-submit {
+    width: 100%;
+    background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+    color: #ffffff;
+    border: none;
+    padding: 11px 16px;
+    font-family: inherit;
+    font-size: 0.92rem;
+    font-weight: 700;
+    border-radius: 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 4px 14px rgba(13, 148, 136, 0.35);
+    margin-top: 4px;
+    margin-bottom: 14px;
+    transition: all 0.2s ease;
+}
+
+.mobile-btn-submit:active {
+    transform: scale(0.98);
+}
+
+.mobile-creds-box {
+    background: #f0fdfa;
+    border: 1px dashed #99f6e4;
+    border-radius: 10px;
+    padding: 9px 12px;
+    margin-bottom: 14px;
+}
+
+.mobile-creds-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: #0d9488;
+    margin-bottom: 4px;
+}
+
+.mobile-btn-autofill {
+    background: #0d9488;
+    color: #ffffff;
+    border: none;
+    padding: 2px 8px;
+    border-radius: 5px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.mobile-creds-text {
+    font-size: 0.74rem;
+    color: #334155;
+    line-height: 1.5;
+}
+
+.mobile-creds-text code {
+    background: #ffffff;
+    padding: 1px 4px;
+    border-radius: 4px;
+    font-weight: 700;
+    color: #0f766e;
+    border: 1px solid #ccfbf1;
+}
+
+.mobile-login-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-size: 0.7rem;
+    color: var(--slate-400);
+    text-align: center;
+}
+
+.mobile-app-shell {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+}
+

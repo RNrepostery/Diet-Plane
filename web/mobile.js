@@ -7,7 +7,7 @@
  */
 
 // Global Application State
-let currentRole = 'admin'; // 'admin' | 'user'
+let currentRole = 'user'; // 'admin' | 'user'
 let currentAdminTab = 'admin-home'; // 'admin-home' | 'admin-upload' | 'admin-users' | 'admin-diet-editor' | 'onboarding'
 let currentUserTab = 'user-diet'; // 'user-diet' | 'user-foods' | 'onboarding' | 'user-profile'
 let activeUserId = 'p-1';
@@ -23,7 +23,7 @@ let onboardingData = {
     heightCm: 160.02, // 5'3" = 63 inches = 160 cm
     weightUnit: 'lbs', // 'lbs' or 'kg' (Screenshot 2: 154.3 lbs)
     weightKg: 69.99, // 154.3 lbs / 2.20462 = 70.0 kg -> BMI 27.3!
-    eatingFrequency: 'Three meals a day', // Matches Screenshot 3
+    eatingFrequency: '3 meals a day', // Options: 2, 3, 4, 5, 6 meals a day
     waistCm: 76,
     hipCm: 96,
     activityLevel: 'Lightly Active',
@@ -36,6 +36,7 @@ let onboardingData = {
 // Meal Inspector State
 let inspectedMeal = null;
 let inspectedPortion = 50; // default for 1 large egg
+let inspectedFromLibrary = false;
 
 // Active Diet Editor State
 let editorUserId = 'p-1';
@@ -45,8 +46,75 @@ document.addEventListener('DOMContentLoaded', () => {
     initClock();
     initDatabaseState();
     setupUserDropdown();
-    applyRole(currentRole);
+    initMobileAuth();
 });
+
+function initMobileAuth() {
+    const isAuthed = window.AdminAuth ? window.AdminAuth.isAuthenticated() : false;
+    const loginScreen = document.getElementById('mobileLoginScreen');
+    const appShell = document.getElementById('mobileAppShell');
+
+    if (isAuthed) {
+        if (loginScreen) loginScreen.style.display = 'none';
+        if (appShell) appShell.style.display = 'flex';
+        applyRole(currentRole || 'admin');
+    } else {
+        if (appShell) appShell.style.display = 'none';
+        if (loginScreen) loginScreen.style.display = 'flex';
+        const alertEl = document.getElementById('mobileLoginAlert');
+        if (alertEl) alertEl.style.display = 'none';
+    }
+}
+
+// Full-screen mobile login submit
+function handleMobileFullscreenLogin(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const uInput = document.getElementById('mobileLoginUser');
+    const pInput = document.getElementById('mobileLoginPass');
+    const u = uInput ? uInput.value : '';
+    const p = pInput ? pInput.value : '';
+
+    const res = window.AdminAuth ? window.AdminAuth.login(u, p) : { success: true, user: { username: u } };
+
+    if (res.success) {
+        const loginScreen = document.getElementById('mobileLoginScreen');
+        const appShell = document.getElementById('mobileAppShell');
+        if (loginScreen) loginScreen.style.display = 'none';
+        if (appShell) appShell.style.display = 'flex';
+
+        showToast('✅ Admin Authenticated! Welcome, ' + (res.user?.username || 'Ashish'));
+        currentRole = 'admin';
+        db.setRole('admin');
+        applyRole('admin');
+    } else {
+        const alertEl = document.getElementById('mobileLoginAlert');
+        if (alertEl) {
+            alertEl.style.display = 'flex';
+            alertEl.innerHTML = `<i class="bi bi-exclamation-triangle-fill"></i> <span>${res.message}</span>`;
+        }
+    }
+}
+
+function autofillMobileLogin(u, p) {
+    const uInput = document.getElementById('mobileLoginUser');
+    const pInput = document.getElementById('mobileLoginPass');
+    if (uInput) uInput.value = u;
+    if (pInput) pInput.value = p;
+    handleMobileFullscreenLogin(null);
+}
+
+function toggleMobileLoginEye() {
+    const passInput = document.getElementById('mobileLoginPass');
+    const eyeIcon = document.getElementById('mobileLoginEyeIcon');
+    if (!passInput) return;
+    if (passInput.type === 'password') {
+        passInput.type = 'text';
+        if (eyeIcon) eyeIcon.className = 'bi bi-eye-slash-fill';
+    } else {
+        passInput.type = 'password';
+        if (eyeIcon) eyeIcon.className = 'bi bi-eye-fill';
+    }
+}
 
 // Clock function (matches user's screenshot format: 3:19 PM)
 function initClock() {
@@ -69,7 +137,8 @@ function initClock() {
 
 function initDatabaseState() {
     if (!window.db) return;
-    currentRole = db.activeRole || 'admin';
+    const isAuthed = window.AdminAuth ? window.AdminAuth.isAuthenticated() : false;
+    currentRole = (db.activeRole || 'admin');
     activeUserId = db.activeUserId || (db.patients[0]?.id || 'p-1');
     editorUserId = activeUserId;
 }
@@ -101,19 +170,157 @@ function onActiveUserChanged(userId) {
 // ROLE SWITCHING: ADMIN vs MULTIPLE USERS
 // ==========================================
 function setAppRole(role) {
+    if (!window.AdminAuth || !window.AdminAuth.isAuthenticated()) {
+        initMobileAuth();
+        return;
+    }
     currentRole = role;
     db.setRole(role);
     applyRole(role);
 }
 
+function openAdminLoginModal() {
+    const overlay = document.getElementById('mobileModalOverlay');
+    const sheet = document.getElementById('mobileModalSheet');
+    if (!overlay || !sheet) return;
+
+    sheet.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(13, 148, 136, 0.15); color: #0d9488; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                    <i class="bi bi-shield-lock-fill"></i>
+                </div>
+                <div>
+                    <h3 style="font-size: 1.12rem; font-weight: 800; color: var(--navy-900); margin: 0;">Admin Portal Login</h3>
+                    <p style="font-size: 0.74rem; color: var(--slate-500); margin: 0;">Clinical Dietitian Authentication Required</p>
+                </div>
+            </div>
+            <button onclick="closeMobileModal()" style="background: none; border: none; font-size: 1.25rem; color: var(--slate-400); cursor: pointer;">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <div id="adminLoginError" style="display: none; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 10px; padding: 8px 12px; font-size: 0.78rem; margin-bottom: 14px;">
+        </div>
+
+        <form onsubmit="handleMobileAdminLogin(event)">
+            <div class="form-input-group" style="margin-bottom: 12px;">
+                <label class="form-label-custom">Admin Username</label>
+                <div style="position: relative;">
+                    <i class="bi bi-person-fill" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--slate-400);"></i>
+                    <input type="text" id="adminLoginUsername" class="form-control-custom" placeholder="Enter username (Ashish)" style="padding-left: 36px;" value="Ashish" required />
+                </div>
+            </div>
+
+            <div class="form-input-group" style="margin-bottom: 14px;">
+                <label class="form-label-custom">Password</label>
+                <div style="position: relative;">
+                    <i class="bi bi-lock-fill" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--slate-400);"></i>
+                    <input type="password" id="adminLoginPassword" class="form-control-custom" placeholder="Enter password (Ashish@2026)" style="padding-left: 36px; padding-right: 40px;" value="Ashish@2026" required />
+                    <button type="button" onclick="toggleMobileAdminPasswordVisibility()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--slate-400); cursor: pointer;">
+                        <i id="adminLoginPwEye" class="bi bi-eye-fill"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 10px 12px; margin-bottom: 16px; font-size: 0.74rem; color: var(--slate-600); display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div><strong>Username:</strong> Ashish (or admin)</div>
+                    <div><strong>Password:</strong> Ashish@2026 (or admin123)</div>
+                </div>
+                <button type="button" onclick="fillAdminCredentials('Ashish', 'Ashish@2026')" class="role-pill-btn" style="background: #ffffff; border: 1px solid #cbd5e1; font-size: 0.7rem; padding: 4px 10px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    Fill Demo
+                </button>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="btn-onboarding-next" style="background: #e2e8f0; color: var(--slate-600); width: 35%; justify-content: center; box-shadow: none;" onclick="closeMobileModal()">
+                    Cancel
+                </button>
+                <button type="submit" class="btn-onboarding-next" style="flex: 1; justify-content: center;">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    <span>Login to Admin</span>
+                </button>
+            </div>
+        </form>
+    `;
+
+    overlay.style.display = 'flex';
+}
+
+function handleMobileAdminLogin(e) {
+    e.preventDefault();
+    const u = document.getElementById('adminLoginUsername').value;
+    const p = document.getElementById('adminLoginPassword').value;
+    const res = window.AdminAuth ? window.AdminAuth.login(u, p) : { success: true, user: { username: u } };
+    if (res.success) {
+        closeMobileModal();
+        showToast('✅ Logged in as ' + (res.user?.username || 'Admin'));
+        currentRole = 'admin';
+        db.setRole('admin');
+        applyRole('admin');
+    } else {
+        const errEl = document.getElementById('adminLoginError');
+        if (errEl) {
+            errEl.style.display = 'block';
+            errEl.innerText = res.message;
+        }
+    }
+}
+
+function toggleMobileAdminPasswordVisibility() {
+    const passInput = document.getElementById('adminLoginPassword');
+    const eyeIcon = document.getElementById('adminLoginPwEye');
+    if (!passInput) return;
+    if (passInput.type === 'password') {
+        passInput.type = 'text';
+        if (eyeIcon) eyeIcon.className = 'bi bi-eye-slash-fill';
+    } else {
+        passInput.type = 'password';
+        if (eyeIcon) eyeIcon.className = 'bi bi-eye-fill';
+    }
+}
+
+function fillAdminCredentials(u, p) {
+    const userEl = document.getElementById('adminLoginUsername');
+    const passEl = document.getElementById('adminLoginPassword');
+    if (userEl) userEl.value = u;
+    if (passEl) passEl.value = p;
+}
+
+function logoutAdmin() {
+    if (window.AdminAuth) {
+        window.AdminAuth.logout();
+    }
+    const appShell = document.getElementById('mobileAppShell');
+    const loginScreen = document.getElementById('mobileLoginScreen');
+    if (appShell) appShell.style.display = 'none';
+    if (loginScreen) {
+        loginScreen.style.display = 'flex';
+        const alertEl = document.getElementById('mobileLoginAlert');
+        if (alertEl) alertEl.style.display = 'none';
+    }
+    showToast('Logged out. Admin authentication required.');
+}
+
 function applyRole(role) {
+    if (!window.AdminAuth || !window.AdminAuth.isAuthenticated()) {
+        initMobileAuth();
+        return;
+    }
+
     const btnAdmin = document.getElementById('btnRoleAdmin');
     const btnUser = document.getElementById('btnRoleUser');
     const userDropdownContainer = document.getElementById('userSelectorDropdownContainer');
+    const logoutBtn = document.getElementById('btnAdminLogoutPill');
 
     if (btnAdmin && btnUser) {
         btnAdmin.classList.toggle('active', role === 'admin');
         btnUser.classList.toggle('active', role === 'user');
+    }
+
+    if (logoutBtn) {
+        logoutBtn.style.display = (window.AdminAuth && window.AdminAuth.isAuthenticated()) ? 'inline-flex' : 'none';
     }
 
     if (userDropdownContainer) {
@@ -179,12 +386,20 @@ function renderBottomNav() {
 }
 
 function switchAdminTab(tab) {
+    if (!window.AdminAuth || !window.AdminAuth.isAuthenticated()) {
+        initMobileAuth();
+        return;
+    }
     currentAdminTab = tab;
     renderBottomNav();
     renderCurrentView();
 }
 
 function switchUserTab(tab) {
+    if (!window.AdminAuth || !window.AdminAuth.isAuthenticated()) {
+        initMobileAuth();
+        return;
+    }
     currentUserTab = tab;
     renderBottomNav();
     renderCurrentView();
@@ -209,6 +424,11 @@ function handleMobileBack() {
 }
 
 function renderCurrentView() {
+    if (!window.AdminAuth || !window.AdminAuth.isAuthenticated()) {
+        initMobileAuth();
+        return;
+    }
+
     const container = document.getElementById('mobileCardSheet');
     if (!container) return;
 
@@ -720,18 +940,25 @@ function renderRulerTicksHtml(count = 33) {
     return html;
 }
 
-// SCREEN 6: "What Is Your Regular Eating Frequency?" (Screenshot 3)
+// SCREEN 6: "What Is Your Regular Eating Frequency?" (Screenshot with 2, 3, 4, 5, 6 meals)
 function renderQuestionEatingFrequency(container) {
     setAppHeader('Eating habits', 90, '', true);
 
-    const freq = onboardingData.eatingFrequency || 'Three meals a day';
+    let freq = onboardingData.eatingFrequency || '3 meals a day';
+    if (freq === 'Three meals a day') freq = '3 meals a day';
+    else if (freq === 'Two meals a day') freq = '2 meals a day';
+    else if (freq === 'One meal a day') freq = '2 meals a day';
+    else if (freq === 'More than three meals a day') freq = '4 meals a day';
+    onboardingData.eatingFrequency = freq;
+
     const hasSelection = Boolean(freq);
 
     const options = [
-        { label: 'One meal a day', iconClass: 'one-meal' },
-        { label: 'Two meals a day', iconClass: 'two-meals' },
-        { label: 'Three meals a day', iconClass: 'three-meals' },
-        { label: 'More than three meals a day', iconClass: 'more-meals' }
+        { label: '2 meals a day', iconClass: 'two-meals' },
+        { label: '3 meals a day', iconClass: 'three-meals' },
+        { label: '4 meals a day', iconClass: 'four-meals' },
+        { label: '5 meals a day', iconClass: 'five-meals' },
+        { label: '6 meals a day', iconClass: 'six-meals' }
     ];
 
     container.innerHTML = `
@@ -927,6 +1154,9 @@ function renderAdminDashboard(container) {
                 <button class="btn-onboarding-next" style="height: 38px; font-size: 0.8rem; background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.3); box-shadow: none;" onclick="switchAdminTab('admin-users')">
                     <i class="bi bi-people-fill"></i> Users Hub
                 </button>
+                <button class="btn-onboarding-next" style="height: 38px; font-size: 0.8rem; background: rgba(239,68,68,0.25); border: 1px solid rgba(239,68,68,0.45); color: #fecaca; box-shadow: none;" onclick="logoutAdmin()" title="Logout Admin">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                </button>
             </div>
         </div>
 
@@ -951,17 +1181,18 @@ function renderAdminDashboard(container) {
         </div>
 
         <!-- Meal Showcase Quick Card (Egg Highlight requested by user) -->
-        <div class="admin-card-header" style="margin-top: 8px;">
+      <div class="admin-card-header" style="margin-top: 8px;">
             <div class="admin-card-title">
                 <i class="bi bi-stars" style="color: var(--primary-green);"></i>
                 <span>Featured Meal: Boiled Egg Nutrition</span>
             </div>
-            <span style="font-size: 0.75rem; color: var(--primary-green); font-weight: 700; cursor: pointer;" onclick="openMealInspector('f-8')">
-                View Full Specs →
+            <span style="font-size: 0.75rem; color: var(--primary-green); font-weight: 700; cursor: pointer;" onclick="openMealLibrary()">
+                View All Meal Specs →
             </span>
         </div>
 
-        ${renderFeaturedEggCard()}
+        <!-- Updated wrapper with proper padding and centering -->
+     
 
         <!-- Quick User Management Shortcuts -->
         <div class="admin-card-header" style="margin-top: 10px;">
@@ -973,7 +1204,6 @@ function renderAdminDashboard(container) {
                 Manage All →
             </span>
         </div>
-
         <div>
             ${users.slice(0, 3).map(u => `
                 <div class="user-card-item">
@@ -1287,12 +1517,41 @@ function handleUploadMealSubmit(e) {
 // =========================================================================
 // MEAL NUTRITION INSPECTOR SHOWCASE (EGG SHOWCASE CARD WITH PROTEIN, VITAMIN, FAT)
 // =========================================================================
-function openMealInspector(foodId) {
+function openMealLibrary() {
+    const foods = db.getFoods();
+    const sheet = document.getElementById('mobileModalSheet');
+    const modal = document.getElementById('mobileModalOverlay');
+    if (!sheet || !modal) return;
+
+    sheet.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div>
+                <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--navy-900); margin: 0;">All Meal Specs</h3>
+                <span style="font-size: 0.75rem; color: var(--slate-500);">${foods.length} meals available</span>
+            </div>
+            <button onclick="closeMobileModal()" style="border: none; background: #f1f5f9; width: 32px; height: 32px; border-radius: 50%; font-size: 1rem; cursor: pointer;" aria-label="Close meal library">
+                ✕
+            </button>
+        </div>
+        <p style="font-size: 0.76rem; color: var(--slate-500); margin-bottom: 12px;">
+            Select any meal to view its full macros, vitamins, minerals, and portion sizes.
+        </p>
+        ${foods.length ? renderFoodItemsLibrary(foods, true) : `
+            <div class="admin-card" style="text-align: center; color: var(--slate-500);">
+                No meals are available yet. Upload a meal to see its nutrition specs here.
+            </div>
+        `}
+    `;
+    modal.style.display = 'flex';
+}
+
+function openMealInspector(foodId, returnToLibrary = false) {
     const food = db.getFood(foodId) || db.getFoods()[0];
     if (!food) return;
 
     inspectedMeal = food;
     inspectedPortion = food.servingQuantity || 50;
+    inspectedFromLibrary = returnToLibrary;
 
     renderMealInspectorModalContent();
     const modal = document.getElementById('mobileModalOverlay');
@@ -1307,6 +1566,11 @@ function renderMealInspectorModalContent() {
     const isEgg = inspectedMeal.name.toLowerCase().includes('egg');
 
     sheet.innerHTML = `
+        ${inspectedFromLibrary ? `
+            <button onclick="openMealLibrary()" style="border: none; background: transparent; color: var(--primary-green); font-size: 0.78rem; font-weight: 700; padding: 0 0 10px; cursor: pointer;">
+                ← Back to all meals
+            </button>
+        ` : ''}
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
             <div style="display: flex; align-items: center; gap: 10px;">
                 <div class="meal-icon-avatar" style="font-size: 1.8rem;">
@@ -1621,10 +1885,11 @@ function openEditUserModal(userId) {
             <div class="form-input-group">
                 <label class="form-label-custom">Eating Frequency</label>
                 <select id="edit_eatingFreq" class="form-control-custom">
-                    <option value="One meal a day" ${user.eatingFrequency === 'One meal a day' ? 'selected' : ''}>One meal a day</option>
-                    <option value="Two meals a day" ${user.eatingFrequency === 'Two meals a day' ? 'selected' : ''}>Two meals a day</option>
-                    <option value="Three meals a day" ${user.eatingFrequency === 'Three meals a day' ? 'selected' : ''}>Three meals a day</option>
-                    <option value="More than three meals a day" ${user.eatingFrequency === 'More than three meals a day' ? 'selected' : ''}>More than three meals a day</option>
+                    <option value="2 meals a day" ${(user.eatingFrequency === '2 meals a day' || user.eatingFrequency === 'Two meals a day') ? 'selected' : ''}>2 meals a day</option>
+                    <option value="3 meals a day" ${(user.eatingFrequency === '3 meals a day' || user.eatingFrequency === 'Three meals a day') ? 'selected' : ''}>3 meals a day</option>
+                    <option value="4 meals a day" ${user.eatingFrequency === '4 meals a day' ? 'selected' : ''}>4 meals a day</option>
+                    <option value="5 meals a day" ${user.eatingFrequency === '5 meals a day' ? 'selected' : ''}>5 meals a day</option>
+                    <option value="6 meals a day" ${user.eatingFrequency === '6 meals a day' ? 'selected' : ''}>6 meals a day</option>
                 </select>
             </div>
 
@@ -2061,13 +2326,13 @@ function filterFoodListUI(term) {
     }
 }
 
-function renderFoodItemsLibrary(foods) {
+function renderFoodItemsLibrary(foods, returnToLibrary = false) {
     return foods.map(f => {
         const nut = db.calculateMealNutrients(f, f.servingQuantity);
         const isEgg = f.name.toLowerCase().includes('egg');
 
         return `
-            <div class="admin-card" style="padding: 12px; margin-bottom: 10px; cursor: pointer;" onclick="openMealInspector('${f.id}')">
+            <div class="admin-card" style="padding: 12px; margin-bottom: 10px; cursor: pointer;" onclick="openMealInspector('${f.id}', ${returnToLibrary})">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center;">
                         <span style="font-size: 1.5rem;">${isEgg ? '🍳' : '🥗'}</span>

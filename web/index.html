@@ -16,7 +16,94 @@
 </head>
 <body>
 
-<div class="app-container">
+<!-- 1st Screen: Dedicated Medical Admin Login Screen (Opened 1st when page opens) -->
+<div id="desktopLoginScreen" class="admin-login-fullscreen" style="display: flex;">
+    <div class="login-card-wrapper">
+        <div class="login-card">
+            <!-- Brand Badge -->
+            <div class="login-brand-header">
+                <div class="login-logo-circle">
+                    <i class="bi bi-heart-pulse-fill"></i>
+                </div>
+                <div>
+                    <h1 class="login-app-title">Clinical Dietetics</h1>
+                    <span class="login-app-badge">Hospital & Nutrition System</span>
+                </div>
+            </div>
+
+            <div class="login-card-divider"></div>
+
+            <div class="login-intro">
+                <h2 class="login-heading">Admin Portal Sign In</h2>
+                <p class="login-subtext">Please authenticate with your administrator credentials to access clinical dashboard, patient intake, disease master, and diet charts.</p>
+            </div>
+
+            <!-- Error message container -->
+            <div id="desktopLoginAlert" class="login-alert-box" style="display: none;"></div>
+
+            <!-- Login Form -->
+            <form id="desktopLoginForm" onsubmit="handleDesktopLogin(event)">
+                <div class="form-group-custom">
+                    <label class="form-label-custom" for="desktopLoginUser">
+                        <i class="bi bi-person-fill"></i> ADMIN USERNAME
+                    </label>
+                    <div class="input-icon-group">
+                        <i class="bi bi-person input-prefix-icon"></i>
+                        <input type="text" id="desktopLoginUser" class="form-input-custom" placeholder="Enter admin username" value="Ashish" autocomplete="username" required />
+                    </div>
+                </div>
+
+                <div class="form-group-custom">
+                    <div class="label-row-custom">
+                        <label class="form-label-custom" for="desktopLoginPass">
+                            <i class="bi bi-lock-fill"></i> PASSWORD
+                        </label>
+                    </div>
+                    <div class="input-icon-group">
+                        <i class="bi bi-shield-lock input-prefix-icon"></i>
+                        <input type="password" id="desktopLoginPass" class="form-input-custom" placeholder="Enter password" value="Ashish@2026" autocomplete="current-password" required />
+                        <button type="button" class="btn-eye-toggle" onclick="toggleDesktopLoginPassword()" title="Show/Hide Password">
+                            <i id="desktopLoginEye" class="bi bi-eye-fill"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-login-submit" id="desktopLoginBtn">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    <span>Sign In to Admin Dashboard</span>
+                </button>
+            </form>
+
+            <!-- Quick Credential Auto-Fill Helper -->
+            <div class="login-creds-helper">
+                <div class="creds-helper-header">
+                    <span class="creds-tag"><i class="bi bi-key-fill"></i> Official Admin Credentials</span>
+                    <button type="button" class="btn-autofill-action" onclick="autofillAndSubmitDesktopLogin('Ashish', 'Ashish@2026')">
+                        <i class="bi bi-lightning-charge-fill"></i> 1-Click Login
+                    </button>
+                </div>
+                <div class="creds-details-grid">
+                    <div><strong>Username:</strong> <code>Ashish</code> <span class="subtle">(or <code>admin</code>)</span></div>
+                    <div><strong>Password:</strong> <code>Ashish@2026</code> <span class="subtle">(or <code>admin123</code>)</span></div>
+                </div>
+            </div>
+
+            <!-- Alternate: Phone UI Simulator -->
+            <div class="login-footer-actions">
+                <a href="/phone" class="btn-phone-sim-link">
+                    <i class="bi bi-phone-fill"></i> Open Phone Simulator (Multi-User View)
+                </a>
+            </div>
+
+            <div class="login-security-notice">
+                <i class="bi bi-shield-check"></i>
+                <span>Offline-First Medical Data Architecture • Secure Local Storage Session</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="app-container" id="appContainer" style="display: none;">
     <!-- Desktop Sidebar -->
     <aside class="sidebar no-print" id="appSidebar">
         <div class="brand-section">
@@ -84,6 +171,7 @@
                 </div>
             </div>
             <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div id="desktopAuthStatus" style="display: flex; align-items: center; gap: 0.5rem;"></div>
                 <a href="/phone" class="btn-emerald" style="font-size: 0.8rem; padding: 0.4rem 0.9rem; text-decoration: none;">
                     <i class="bi bi-phone-fill"></i> Phone UI Simulator
                 </a>

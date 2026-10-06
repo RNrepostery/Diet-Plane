@@ -9,18 +9,113 @@ let activeDietPlan = null;
 let currentSearchTerm = '';
 
 document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('headerCurrentDate').innerText = new Date().toLocaleDateString('en-GB', {
-        day: '2-digit', month: 'short', year: 'numeric'
-    });
-    navigateTo('dashboard');
+    initDesktopAuth();
 });
+
+function initDesktopAuth() {
+    const isAuthed = window.AdminAuth ? window.AdminAuth.isAuthenticated() : false;
+    const loginScreen = document.getElementById('desktopLoginScreen');
+    const appContainer = document.getElementById('appContainer');
+
+    if (isAuthed) {
+        if (loginScreen) loginScreen.style.display = 'none';
+        if (appContainer) appContainer.style.display = 'flex';
+        const dateEl = document.getElementById('headerCurrentDate');
+        if (dateEl) {
+            dateEl.innerText = new Date().toLocaleDateString('en-GB', {
+                day: '2-digit', month: 'short', year: 'numeric'
+            });
+        }
+        updateDesktopAuthHeader();
+        navigateTo('dashboard');
+    } else {
+        if (appContainer) appContainer.style.display = 'none';
+        if (loginScreen) loginScreen.style.display = 'flex';
+        const alertEl = document.getElementById('desktopLoginAlert');
+        if (alertEl) alertEl.style.display = 'none';
+    }
+}
 
 function toggleSidebar() {
     const sidebar = document.getElementById('appSidebar');
-    sidebar.classList.toggle('mobile-open');
+    if (sidebar) sidebar.classList.toggle('mobile-open');
+}
+
+function updateDesktopAuthHeader() {
+    const statusContainer = document.getElementById('desktopAuthStatus');
+    const footerBadge = document.querySelector('.user-profile-badge');
+    const isAuthed = window.AdminAuth ? window.AdminAuth.isAuthenticated() : false;
+    const admin = window.AdminAuth ? window.AdminAuth.getCurrentAdmin() : null;
+
+    if (statusContainer) {
+        if (isAuthed) {
+            statusContainer.innerHTML = `
+                <span class="badge" style="background: rgba(13,148,136,0.12); color: #0d9488; font-weight: 700; font-size: 0.76rem; padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(13,148,136,0.3);">
+                    <i class="bi bi-shield-check text-success"></i> ${admin?.username || 'Ashish'} (Admin)
+                </span>
+                <button class="btn-outline-teal" style="font-size: 0.75rem; padding: 0.35rem 0.75rem; color: #dc2626; border-color: #fca5a5;" onclick="desktopLogout()">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                </button>
+            `;
+        } else {
+            statusContainer.innerHTML = `
+                <button class="btn-emerald" style="font-size: 0.78rem; padding: 0.35rem 0.85rem;" onclick="desktopLogout()">
+                    <i class="bi bi-shield-lock-fill"></i> Admin Login
+                </button>
+            `;
+        }
+    }
+
+    if (footerBadge) {
+        if (isAuthed) {
+            footerBadge.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                    <div style="display: flex; align-items: center; gap: 0.65rem;">
+                        <div class="user-avatar" style="background: #0d9488;">${(admin?.username || 'A')[0]}</div>
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.8rem; color: #fff;">${admin?.username || 'Ashish'}</div>
+                            <div style="font-size: 0.65rem; color: #2dd4bf; font-weight: 600;">Registered Dietitian</div>
+                        </div>
+                    </div>
+                    <button onclick="desktopLogout()" style="background: none; border: none; color: #f87171; cursor: pointer; font-size: 0.95rem;" title="Logout Admin">
+                        <i class="bi bi-box-arrow-right"></i>
+                    </button>
+                </div>
+            `;
+        } else {
+            footerBadge.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                    <div style="display: flex; align-items: center; gap: 0.65rem;">
+                        <div class="user-avatar" style="background: #64748b;">?</div>
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.8rem; color: #fff;">Guest Session</div>
+                            <div style="font-size: 0.65rem; color: #94a3b8; font-weight: 600;">Login required</div>
+                        </div>
+                    </div>
+                    <button onclick="desktopLogout()" style="background: none; border: none; color: #2dd4bf; cursor: pointer; font-size: 0.95rem;" title="Login">
+                        <i class="bi bi-box-arrow-in-right"></i>
+                    </button>
+                </div>
+            `;
+        }
+    }
 }
 
 function navigateTo(view, param = null) {
+    // Check Admin Authentication - strict gate
+    const isAuthed = window.AdminAuth ? window.AdminAuth.isAuthenticated() : false;
+    const loginScreen = document.getElementById('desktopLoginScreen');
+    const appContainer = document.getElementById('appContainer');
+
+    if (!isAuthed) {
+        if (appContainer) appContainer.style.display = 'none';
+        if (loginScreen) loginScreen.style.display = 'flex';
+        return;
+    }
+
+    if (loginScreen) loginScreen.style.display = 'none';
+    if (appContainer) appContainer.style.display = 'flex';
+
     currentView = view;
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
@@ -30,6 +125,7 @@ function navigateTo(view, param = null) {
     });
 
     const main = document.getElementById('mainContent');
+    updateDesktopAuthHeader();
 
     switch (view) {
         case 'dashboard':
@@ -56,6 +152,76 @@ function navigateTo(view, param = null) {
         default:
             renderDashboard(main);
     }
+}
+
+function handleDesktopLogin(e, returnView = 'dashboard', returnParam = null) {
+    if (e && e.preventDefault) e.preventDefault();
+    const uInput = document.getElementById('desktopLoginUser');
+    const pInput = document.getElementById('desktopLoginPass');
+    const u = uInput ? uInput.value : '';
+    const p = pInput ? pInput.value : '';
+
+    const res = window.AdminAuth ? window.AdminAuth.login(u, p) : { success: true, user: { username: u } };
+
+    if (res.success) {
+        const loginScreen = document.getElementById('desktopLoginScreen');
+        const appContainer = document.getElementById('appContainer');
+        if (loginScreen) loginScreen.style.display = 'none';
+        if (appContainer) appContainer.style.display = 'flex';
+
+        const dateEl = document.getElementById('headerCurrentDate');
+        if (dateEl) {
+            dateEl.innerText = new Date().toLocaleDateString('en-GB', {
+                day: '2-digit', month: 'short', year: 'numeric'
+            });
+        }
+
+        updateDesktopAuthHeader();
+        showToast('✅ Logged in successfully as ' + (res.user?.username || 'Admin'));
+        navigateTo(returnView || 'dashboard', returnParam);
+    } else {
+        const alertEl = document.getElementById('desktopLoginAlert');
+        if (alertEl) {
+            alertEl.style.display = 'flex';
+            alertEl.innerHTML = `<i class="bi bi-exclamation-triangle-fill"></i> <span>${res.message}</span>`;
+        }
+    }
+}
+
+function toggleDesktopLoginPassword() {
+    const input = document.getElementById('desktopLoginPass');
+    const eye = document.getElementById('desktopLoginEye');
+    if (!input) return;
+    if (input.type === 'password') {
+        input.type = 'text';
+        if (eye) eye.className = 'bi bi-eye-slash-fill';
+    } else {
+        input.type = 'password';
+        if (eye) eye.className = 'bi bi-eye-fill';
+    }
+}
+
+function autofillAndSubmitDesktopLogin(u, p) {
+    const userInput = document.getElementById('desktopLoginUser');
+    const passInput = document.getElementById('desktopLoginPass');
+    if (userInput) userInput.value = u;
+    if (passInput) passInput.value = p;
+    handleDesktopLogin(null, 'dashboard');
+}
+
+function desktopLogout() {
+    if (window.AdminAuth) {
+        window.AdminAuth.logout();
+    }
+    const appContainer = document.getElementById('appContainer');
+    const loginScreen = document.getElementById('desktopLoginScreen');
+    if (appContainer) appContainer.style.display = 'none';
+    if (loginScreen) {
+        loginScreen.style.display = 'flex';
+        const alertEl = document.getElementById('desktopLoginAlert');
+        if (alertEl) alertEl.style.display = 'none';
+    }
+    showToast('Logged out of Admin Portal');
 }
 
 // ==========================================
@@ -677,11 +843,13 @@ function updateIntakeView(container = document.getElementById('mainContent')) {
                         </select>
                     </div>
                     <div>
-                        <label class="form-label">Meal Pattern</label>
-                        <select class="form-select" onchange="activePatientForm.mealFrequency = this.value;">
-                            <option value="2 Meals" ${p.mealFrequency === '2 Meals' ? 'selected' : ''}>2 Main Meals</option>
-                            <option value="3 Meals" ${p.mealFrequency === '3 Meals' ? 'selected' : ''}>3 Main Meals</option>
-                            <option value="Small Frequent Meals" ${p.mealFrequency === 'Small Frequent Meals' ? 'selected' : ''}>Small Frequent Meals (5-6/day)</option>
+                        <label class="form-label">Meal Pattern / Frequency</label>
+                        <select class="form-select" onchange="activePatientForm.mealFrequency = this.value; activePatientForm.eatingFrequency = this.value.toLowerCase() + ' a day';">
+                            <option value="2 Meals" ${(p.mealFrequency === '2 Meals' || p.mealFrequency === '2 meals a day') ? 'selected' : ''}>2 Meals per day</option>
+                            <option value="3 Meals" ${(p.mealFrequency === '3 Meals' || p.mealFrequency === '3 meals a day') ? 'selected' : ''}>3 Meals per day</option>
+                            <option value="4 Meals" ${(p.mealFrequency === '4 Meals' || p.mealFrequency === '4 meals a day') ? 'selected' : ''}>4 Meals per day</option>
+                            <option value="5 Meals" ${(p.mealFrequency === '5 Meals' || p.mealFrequency === '5 meals a day' || p.mealFrequency === 'Small Frequent Meals') ? 'selected' : ''}>5 Meals per day</option>
+                            <option value="6 Meals" ${(p.mealFrequency === '6 Meals' || p.mealFrequency === '6 meals a day') ? 'selected' : ''}>6 Meals per day</option>
                         </select>
                     </div>
                 </div>

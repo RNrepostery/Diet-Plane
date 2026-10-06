@@ -746,7 +746,7 @@ const SEED_PATIENTS = [
         yearOfBirth: 1989,
         age: 37,
         gender: 'Male',
-        eatingFrequency: 'Three meals a day',
+        eatingFrequency: '3 meals a day',
         primaryComplaint: 'Weight loss and management of Grade 1 Fatty Liver & Borderline Hypertension.',
         clinicalDiagnoses: ['Hypertension', 'Non-Alcoholic Fatty Liver (NAFLD)'],
         describeMedicalConditions: 'Grade 1 Hepatic Steatosis reported on abdominal ultrasound; BP 138/88 mmHg.',
@@ -782,7 +782,7 @@ const SEED_PATIENTS = [
         yearOfBirth: 1996,
         age: 30,
         gender: 'Female',
-        eatingFrequency: 'More than three meals a day',
+        eatingFrequency: '5 meals a day',
         primaryComplaint: 'PCOS management, weight stagnation, and insulin resistance.',
         clinicalDiagnoses: ['Polycystic Ovary Syndrome (PCOS)', 'Diabetes Mellitus Type 2'],
         describeMedicalConditions: 'Insulin resistance (HOMA-IR 3.8), irregular menstrual cycles (45-50 days).',
@@ -801,7 +801,7 @@ const SEED_PATIENTS = [
         waterConsumptionLiters: 2.8,
         alcoholSmokingFrequency: 'Non-smoker',
         emotionalEatingTriggers: ['Anxiety', 'Sadness'],
-        mealFrequency: 'Small Frequent Meals',
+        mealFrequency: '5 Meals',
         heightCm: 162.0,
         weightKg: 68.0,
         waistCm: 84.0,
@@ -818,7 +818,7 @@ const SEED_PATIENTS = [
         yearOfBirth: 2000,
         age: 26,
         gender: 'Female',
-        eatingFrequency: 'Two meals a day',
+        eatingFrequency: '2 meals a day',
         primaryComplaint: 'Lean muscle definition, high energy nutrition, and micronutrient balancing.',
         clinicalDiagnoses: [],
         describeMedicalConditions: 'Healthy vitals, periodic low iron fatigue.',
@@ -854,8 +854,8 @@ const SEED_PATIENTS = [
         yearOfBirth: 1994,
         age: 32,
         gender: 'Male',
-        eatingFrequency: 'One meal a day',
-        primaryComplaint: 'Intermittent Fasting OMAD optimization & athletic conditioning.',
+        eatingFrequency: '4 meals a day',
+        primaryComplaint: 'Athletic conditioning & clean caloric nutrition.',
         clinicalDiagnoses: [],
         describeMedicalConditions: 'Active runner, normal lipid and glucose profile.',
         prescribedMedications: 'None',
@@ -873,7 +873,7 @@ const SEED_PATIENTS = [
         waterConsumptionLiters: 3.5,
         alcoholSmokingFrequency: 'Occasional beer',
         emotionalEatingTriggers: [],
-        mealFrequency: '1 Meal',
+        mealFrequency: '4 Meals',
         heightCm: 180.0,
         weightKg: 76.0,
         waistCm: 82.0,
@@ -1657,43 +1657,107 @@ const DietGenerator = {
 
         const findItem = (term, cat) => safe.find(f => f.name.toLowerCase().includes(term.toLowerCase())) || (cat ? safe.find(f => f.category === cat) : null);
 
-        // Breakfast (~25%)
+        // Detect meal count: 2, 3, 4, 5, or 6 meals per day
+        const freqStr = (patient.mealFrequency || patient.eatingFrequency || '3 meals a day').toLowerCase();
+        let mealCount = 3;
+        if (freqStr.includes('2') || freqStr.includes('two')) mealCount = 2;
+        else if (freqStr.includes('4') || freqStr.includes('four')) mealCount = 4;
+        else if (freqStr.includes('5') || freqStr.includes('five')) mealCount = 5;
+        else if (freqStr.includes('6') || freqStr.includes('six')) mealCount = 6;
+        else if (freqStr.includes('3') || freqStr.includes('three')) mealCount = 3;
+
+        // Food helpers
         const oats = findItem('Oats', 'Cereals');
         const eggWhite = findItem('Egg White', 'Proteins');
-        if (oats) plan.mealItems.push(this.createMealItem('Breakfast', '08:30 AM', oats, 40, 'Cooked with warm water or skim milk'));
-        if (eggWhite) plan.mealItems.push(this.createMealItem('Breakfast', '08:30 AM', eggWhite, 33, 'Boiled'));
-
-        // Mid-Morning (~10%)
         const almonds = findItem('Almonds', 'Nuts & Seeds');
         const apple = findItem('Apple', 'Fruits');
-        if (almonds) plan.mealItems.push(this.createMealItem('Mid-Morning', '11:00 AM', almonds, 15, 'Soaked overnight & peeled'));
-        if (apple) plan.mealItems.push(this.createMealItem('Mid-Morning', '11:00 AM', apple, 120, 'Eat fresh with peel'));
-
-        // Lunch (~30%)
         const roti = findItem('Roti', 'Cereals') || findItem('Brown Rice', 'Cereals');
         const dal = findItem('Moong Dal', 'Proteins');
         const salad = findItem('Salad', 'Vegetables');
         const curd = findItem('Curd', 'Dairy');
-        if (roti) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', roti, 70, '2 medium rotis without extra ghee'));
-        if (dal) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', dal, 150, '1 medium bowl with light cumin & turmeric'));
-        if (salad) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', salad, 150, 'Add lemon juice and pinch of pink salt'));
-        if (curd) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', curd, 150, 'Plain probiotic curd'));
-
-        // Evening Snack (~10%)
         const greenTea = findItem('Green Tea', 'Beverages');
         const chana = findItem('Chana', 'Snacks');
-        if (greenTea) plan.mealItems.push(this.createMealItem('Evening', '05:30 PM', greenTea, 200, 'Fresh brew without sugar'));
-        if (chana) plan.mealItems.push(this.createMealItem('Evening', '05:30 PM', chana, 40, 'Crunchy roasted snack'));
-
-        // Dinner (~20%)
         const dinnerRoti = findItem('Roti', 'Cereals');
         const dinnerProtein = findItem('Paneer', 'Dairy') || findItem('Tofu', 'Proteins') || findItem('Chicken', 'Proteins') || dal;
-        if (dinnerRoti) plan.mealItems.push(this.createMealItem('Dinner', '08:30 PM', dinnerRoti, 35, '1 medium roti (light dinner)'));
-        if (dinnerProtein) plan.mealItems.push(this.createMealItem('Dinner', '08:30 PM', dinnerProtein, dinnerProtein.servingQuantity, 'Non-oily preparation'));
-
-        // Bedtime (~5%)
         const milk = findItem('Milk', 'Dairy');
-        if (milk) plan.mealItems.push(this.createMealItem('Bedtime', '10:00 PM', milk, 200, 'Warm milk with organic turmeric'));
+
+        if (mealCount === 2) {
+            // 2 Meals Per Day: Lunch & Dinner
+            if (roti) plan.mealItems.push(this.createMealItem('Lunch', '12:30 PM', roti, 100, 'Main Meal 1 (Whole Grain)'));
+            if (dal) plan.mealItems.push(this.createMealItem('Lunch', '12:30 PM', dal, 200, 'Cooked with light cumin & turmeric'));
+            if (salad) plan.mealItems.push(this.createMealItem('Lunch', '12:30 PM', salad, 180, 'Fresh raw fiber bowl with lemon'));
+            if (curd) plan.mealItems.push(this.createMealItem('Lunch', '12:30 PM', curd, 150, 'Plain probiotic curd'));
+
+            if (dinnerRoti) plan.mealItems.push(this.createMealItem('Dinner', '08:00 PM', dinnerRoti, 70, 'Main Meal 2 (Light Whole Wheat)'));
+            if (dinnerProtein) plan.mealItems.push(this.createMealItem('Dinner', '08:00 PM', dinnerProtein, dinnerProtein.servingQuantity, 'Non-oily preparation'));
+            if (almonds) plan.mealItems.push(this.createMealItem('Dinner', '08:00 PM', almonds, 15, 'Soaked nuts'));
+        } else if (mealCount === 3) {
+            // 3 Meals Per Day: Breakfast, Lunch & Dinner
+            if (oats) plan.mealItems.push(this.createMealItem('Breakfast', '08:30 AM', oats, 50, 'Cooked with warm water or skim milk'));
+            if (eggWhite) plan.mealItems.push(this.createMealItem('Breakfast', '08:30 AM', eggWhite, 33, 'Boiled'));
+            if (apple) plan.mealItems.push(this.createMealItem('Breakfast', '08:30 AM', apple, 100, 'Fresh sliced apple'));
+
+            if (roti) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', roti, 70, '2 medium rotis without extra ghee'));
+            if (dal) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', dal, 150, '1 medium bowl with light cumin & turmeric'));
+            if (salad) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', salad, 150, 'Add lemon juice and pink salt'));
+            if (curd) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', curd, 150, 'Plain probiotic curd'));
+
+            if (dinnerRoti) plan.mealItems.push(this.createMealItem('Dinner', '08:30 PM', dinnerRoti, 50, 'Light dinner portion'));
+            if (dinnerProtein) plan.mealItems.push(this.createMealItem('Dinner', '08:30 PM', dinnerProtein, dinnerProtein.servingQuantity, 'Non-oily preparation'));
+        } else if (mealCount === 4) {
+            // 4 Meals Per Day: Breakfast, Lunch, Evening Snack & Dinner
+            if (oats) plan.mealItems.push(this.createMealItem('Breakfast', '08:30 AM', oats, 45, 'Cooked with warm water'));
+            if (eggWhite) plan.mealItems.push(this.createMealItem('Breakfast', '08:30 AM', eggWhite, 33, 'Boiled'));
+
+            if (roti) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', roti, 70, 'Whole wheat rotis'));
+            if (dal) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', dal, 150, 'Moong dal bowl'));
+            if (salad) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', salad, 150, 'Fresh cucumber & tomato'));
+            if (curd) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', curd, 100, 'Probiotic curd'));
+
+            if (greenTea) plan.mealItems.push(this.createMealItem('Evening', '05:30 PM', greenTea, 200, 'Fresh brew without sugar'));
+            if (chana) plan.mealItems.push(this.createMealItem('Evening', '05:30 PM', chana, 40, 'Roasted snack'));
+
+            if (dinnerRoti) plan.mealItems.push(this.createMealItem('Dinner', '08:30 PM', dinnerRoti, 45, 'Light roti portion'));
+            if (dinnerProtein) plan.mealItems.push(this.createMealItem('Dinner', '08:30 PM', dinnerProtein, dinnerProtein.servingQuantity, 'Therapeutic preparation'));
+        } else if (mealCount === 5) {
+            // 5 Meals Per Day: Breakfast, Mid-Morning, Lunch, Evening & Dinner
+            if (oats) plan.mealItems.push(this.createMealItem('Breakfast', '08:30 AM', oats, 40, 'Warm preparation'));
+            if (eggWhite) plan.mealItems.push(this.createMealItem('Breakfast', '08:30 AM', eggWhite, 33, 'Boiled'));
+
+            if (almonds) plan.mealItems.push(this.createMealItem('Mid-Morning', '11:00 AM', almonds, 15, 'Soaked & peeled'));
+            if (apple) plan.mealItems.push(this.createMealItem('Mid-Morning', '11:00 AM', apple, 120, 'Eat fresh with peel'));
+
+            if (roti) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', roti, 70, '2 medium rotis'));
+            if (dal) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', dal, 150, 'Lentil bowl'));
+            if (salad) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', salad, 150, 'Raw veggies'));
+            if (curd) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', curd, 100, 'Plain curd'));
+
+            if (greenTea) plan.mealItems.push(this.createMealItem('Evening', '05:30 PM', greenTea, 200, 'Green tea'));
+            if (chana) plan.mealItems.push(this.createMealItem('Evening', '05:30 PM', chana, 40, 'Roasted chana'));
+
+            if (dinnerRoti) plan.mealItems.push(this.createMealItem('Dinner', '08:30 PM', dinnerRoti, 35, '1 medium roti'));
+            if (dinnerProtein) plan.mealItems.push(this.createMealItem('Dinner', '08:30 PM', dinnerProtein, dinnerProtein.servingQuantity, 'Healthy protein'));
+        } else {
+            // 6 Meals Per Day: Breakfast, Mid-Morning, Lunch, Evening, Dinner & Bedtime
+            if (oats) plan.mealItems.push(this.createMealItem('Breakfast', '08:30 AM', oats, 40, 'Warm oats'));
+            if (eggWhite) plan.mealItems.push(this.createMealItem('Breakfast', '08:30 AM', eggWhite, 33, 'Boiled'));
+
+            if (almonds) plan.mealItems.push(this.createMealItem('Mid-Morning', '11:00 AM', almonds, 15, 'Soaked almonds'));
+            if (apple) plan.mealItems.push(this.createMealItem('Mid-Morning', '11:00 AM', apple, 100, 'Fresh apple'));
+
+            if (roti) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', roti, 70, 'Whole grain rotis'));
+            if (dal) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', dal, 150, 'Protein dal'));
+            if (salad) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', salad, 150, 'Salad'));
+            if (curd) plan.mealItems.push(this.createMealItem('Lunch', '01:30 PM', curd, 100, 'Curd'));
+
+            if (greenTea) plan.mealItems.push(this.createMealItem('Evening', '05:30 PM', greenTea, 200, 'Green tea'));
+            if (chana) plan.mealItems.push(this.createMealItem('Evening', '05:30 PM', chana, 35, 'Roasted snack'));
+
+            if (dinnerRoti) plan.mealItems.push(this.createMealItem('Dinner', '08:30 PM', dinnerRoti, 35, 'Light roti'));
+            if (dinnerProtein) plan.mealItems.push(this.createMealItem('Dinner', '08:30 PM', dinnerProtein, dinnerProtein.servingQuantity, 'Dinner protein'));
+
+            if (milk) plan.mealItems.push(this.createMealItem('Bedtime', '10:00 PM', milk, 180, 'Warm turmeric milk'));
+        }
 
         db.recalculatePlanTotals(plan);
         return plan;
@@ -1768,6 +1832,65 @@ const DietGenerator = {
     }
 };
 
+/**
+ * Admin Authentication Service
+ * Controls access to Clinical Admin Portal & Patient Management
+ */
+const AdminAuth = {
+    SESSION_KEY: 'diet_admin_auth_session',
+
+    isAuthenticated() {
+        try {
+            const raw = localStorage.getItem(this.SESSION_KEY);
+            if (!raw) return false;
+            const data = JSON.parse(raw);
+            return Boolean(data && data.isLoggedIn);
+        } catch (e) {
+            return false;
+        }
+    },
+
+    getCurrentAdmin() {
+        try {
+            const raw = localStorage.getItem(this.SESSION_KEY);
+            if (!raw) return null;
+            return JSON.parse(raw);
+        } catch (e) {
+            return null;
+        }
+    },
+
+    login(username, password) {
+        const u = (username || '').trim().toLowerCase();
+        const p = (password || '').trim();
+
+        // Support official credentials 'Ashish' / 'Ashish@2026' or 'admin' / 'admin123'
+        const isAshish = (u === 'ashish' && (p === 'Ashish@2026' || p === 'ashish@2026' || p === 'Ashish' || p === 'ashish'));
+        const isAdmin = (u === 'admin' && (p === 'admin123' || p === 'admin' || p === 'admin@123'));
+
+        if (isAshish || isAdmin) {
+            const session = {
+                isLoggedIn: true,
+                username: isAshish ? 'Ashish' : 'Admin',
+                displayName: isAshish ? 'Dt. Ashish (Registered Dietitian)' : 'Clinical Administrator',
+                loginTime: new Date().toISOString()
+            };
+            localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
+            return { success: true, user: session };
+        }
+
+        return { 
+            success: false, 
+            message: 'Invalid credentials. Enter Username: Ashish | Password: Ashish@2026 (or admin / admin123)' 
+        };
+    },
+
+    logout() {
+        localStorage.removeItem(this.SESSION_KEY);
+    }
+};
+
+window.AdminAuth = AdminAuth;
 window.db = db;
 window.ClinicalCalculator = ClinicalCalculator;
 window.DietGenerator = DietGenerator;

@@ -49,52 +49,130 @@
         </div>
     </div>
 
-    <!-- App Role Selector Bar (Switch Between Admin & Multiple Users) -->
-    <div class="role-selector-bar">
-        <div class="role-toggle-pill">
-            <button class="role-pill-btn active" id="btnRoleAdmin" onclick="setAppRole('admin')">
-                <i class="bi bi-shield-lock-fill"></i> Admin Portal
-            </button>
-            <button class="role-pill-btn" id="btnRoleUser" onclick="setAppRole('user')">
-                <i class="bi bi-people-fill"></i> Multiple Users
-            </button>
-        </div>
-        <div id="userSelectorDropdownContainer" class="user-quick-dropdown" style="display: none;">
-            <span style="color: var(--slate-500); font-size: 0.72rem; white-space: nowrap; margin-right: 6px;">
-                <i class="bi bi-person-circle"></i> Active User:
-            </span>
-            <select id="activeUserSelect" onchange="onActiveUserChanged(this.value)">
-                <!-- Populated dynamically: Rajesh, Pooja, Ananya, Vikram -->
-            </select>
+    <!-- 1st Screen: Dedicated Mobile Admin Login Screen (Opened first until admin authenticates) -->
+    <div id="mobileLoginScreen" class="mobile-login-screen" style="display: flex;">
+        <div class="mobile-login-card">
+            <div class="mobile-login-brand">
+                <div class="mobile-login-logo">
+                    <i class="bi bi-heart-pulse-fill"></i>
+                </div>
+                <div>
+                    <h2 class="mobile-login-title">Clinical Dietetics</h2>
+                    <span class="mobile-login-badge">Mobile Clinical System</span>
+                </div>
+            </div>
+
+            <div class="mobile-login-header">
+                <h3 class="mobile-login-heading">Admin Sign In</h3>
+                <p class="mobile-login-sub">Please authenticate with your administrator credentials to unlock the mobile clinical portal and patient diets.</p>
+            </div>
+
+            <div id="mobileLoginAlert" class="mobile-login-alert" style="display: none;"></div>
+
+            <form id="mobileLoginForm" onsubmit="handleMobileFullscreenLogin(event)">
+                <div class="mobile-form-group">
+                    <label class="mobile-form-label">
+                        <i class="bi bi-person-fill"></i> Admin Username
+                    </label>
+                    <div class="mobile-input-wrap">
+                        <i class="bi bi-person mobile-input-icon"></i>
+                        <input type="text" id="mobileLoginUser" class="mobile-input-field" placeholder="Enter username" value="Ashish" autocomplete="username" required />
+                    </div>
+                </div>
+
+                <div class="mobile-form-group">
+                    <label class="mobile-form-label">
+                        <i class="bi bi-lock-fill"></i> Password
+                    </label>
+                    <div class="mobile-input-wrap">
+                        <i class="bi bi-shield-lock mobile-input-icon"></i>
+                        <input type="password" id="mobileLoginPass" class="mobile-input-field" placeholder="Enter password" value="Ashish@2026" autocomplete="current-password" required />
+                        <button type="button" class="mobile-eye-btn" onclick="toggleMobileLoginEye()">
+                            <i id="mobileLoginEyeIcon" class="bi bi-eye-fill"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="mobile-btn-submit" id="mobileLoginSubmitBtn">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    <span>Sign In & Unlock App</span>
+                </button>
+            </form>
+
+            <div class="mobile-creds-box">
+                <div class="mobile-creds-header">
+                    <span><i class="bi bi-key-fill"></i> Official Admin Credentials</span>
+                    <button type="button" class="mobile-btn-autofill" onclick="autofillMobileLogin('Ashish', 'Ashish@2026')">
+                        <i class="bi bi-lightning-charge-fill"></i> 1-Click
+                    </button>
+                </div>
+                <div class="mobile-creds-text">
+                    <div>User: <code>Ashish</code> <span style="opacity: 0.7;">(or <code>admin</code>)</span></div>
+                    <div>Pass: <code>Ashish@2026</code> <span style="opacity: 0.7;">(or <code>admin123</code>)</span></div>
+                </div>
+            </div>
+
+            <div class="mobile-login-footer">
+                <i class="bi bi-shield-check"></i>
+                <span>Offline-First Encrypted Medical Session</span>
+            </div>
         </div>
     </div>
 
-    <!-- Screen Navigation Header (Matching screenshot with back arrow, category title, progress bar) -->
-    <header class="app-screen-header" id="appScreenHeader">
-        <div class="header-main-row">
-            <button class="header-nav-back" id="mobileBackBtn" onclick="handleMobileBack()">
-                <i class="bi bi-arrow-left"></i>
-            </button>
-            <div class="header-category-title" id="mobileCategoryTitle">Basic Info</div>
-            <div class="header-right-action" id="headerRightAction">
-                <!-- Action / Reset / Shortcut -->
+    <!-- Phone App Shell: Only rendered and accessible after Admin Authenticates -->
+    <div id="mobileAppShell" class="mobile-app-shell" style="display: none;">
+        <!-- App Role Selector Bar (Switch Between Admin & Multiple Users) -->
+        <div class="role-selector-bar">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                <div class="role-toggle-pill" style="flex: 1;">
+                    <button class="role-pill-btn active" id="btnRoleAdmin" onclick="setAppRole('admin')">
+                        <i class="bi bi-shield-lock-fill"></i> Admin Portal
+                    </button>
+                    <button class="role-pill-btn" id="btnRoleUser" onclick="setAppRole('user')">
+                        <i class="bi bi-people-fill"></i> Multiple Users
+                    </button>
+                </div>
+                <button id="btnAdminLogoutPill" class="admin-logout-chip" onclick="logoutAdmin()" style="display: inline-flex;" title="Logout of Admin">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                </button>
+            </div>
+            <div id="userSelectorDropdownContainer" class="user-quick-dropdown" style="display: none;">
+                <span style="color: var(--slate-500); font-size: 0.72rem; white-space: nowrap; margin-right: 6px;">
+                    <i class="bi bi-person-circle"></i> Active User:
+                </span>
+                <select id="activeUserSelect" onchange="onActiveUserChanged(this.value)">
+                    <!-- Populated dynamically: Rajesh, Pooja, Ananya, Vikram -->
+                </select>
             </div>
         </div>
-        <!-- Emerald Progress Bar (Matching screenshots) -->
-        <div class="header-progress-track" id="headerProgressTrack">
-            <div class="header-progress-fill" id="headerProgressFill" style="width: 45%;"></div>
-        </div>
-    </header>
 
-    <!-- Main Content Area (Rendered by mobile.js) -->
-    <main class="mobile-content-area" id="mobileCardSheet">
-        <!-- Rendered based on active tab and role -->
-    </main>
+        <!-- Screen Navigation Header (Matching screenshot with back arrow, category title, progress bar) -->
+        <header class="app-screen-header" id="appScreenHeader">
+            <div class="header-main-row">
+                <button class="header-nav-back" id="mobileBackBtn" onclick="handleMobileBack()">
+                    <i class="bi bi-arrow-left"></i>
+                </button>
+                <div class="header-category-title" id="mobileCategoryTitle">Basic Info</div>
+                <div class="header-right-action" id="headerRightAction">
+                    <!-- Action / Reset / Shortcut -->
+                </div>
+            </div>
+            <!-- Emerald Progress Bar (Matching screenshots) -->
+            <div class="header-progress-track" id="headerProgressTrack">
+                <div class="header-progress-fill" id="headerProgressFill" style="width: 45%;"></div>
+            </div>
+        </header>
 
-    <!-- Bottom Navigation Bar -->
-    <nav class="mobile-bottom-nav" id="mobileBottomNav">
-        <!-- Rendered based on active role (Admin vs User) -->
-    </nav>
+        <!-- Main Content Area (Rendered by mobile.js) -->
+        <main class="mobile-content-area" id="mobileCardSheet">
+            <!-- Rendered based on active tab and role -->
+        </main>
+
+        <!-- Bottom Navigation Bar -->
+        <nav class="mobile-bottom-nav" id="mobileBottomNav">
+            <!-- Rendered based on active role (Admin vs User) -->
+        </nav>
+    </div>
 
     <!-- Android Bottom Navigation Bar (Matching Screenshots: Square, Circle, Triangle) -->
     <div class="android-nav-bar">
